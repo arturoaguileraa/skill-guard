@@ -4,7 +4,7 @@ Mass-analysis worker: ingest agent skills / MCP servers **at scale**, score each
 with Jev by reusing the `skillguard` engine, and **store the results** in a
 database. This is what turns the demo hub into a real, growing catalog.
 
-> Part of the skillguard monorepo. See the [root docs](../../docs). The engine it
+> Part of the skill-guard monorepo. See the [root docs](../../docs). The engine it
 > reuses lives in [`apps/jev`](../jev) (installed here as an editable path dep).
 
 ## Pipeline

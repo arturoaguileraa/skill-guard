@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Short records of the decisions that shaped skillguard and their trade-offs. Each is immutable once accepted; supersede rather than rewrite.
+Short records of the decisions that shaped skill-guard and their trade-offs. Each is immutable once accepted; supersede rather than rewrite.
 
 | # | Decision | Status |
 |---|---|---|

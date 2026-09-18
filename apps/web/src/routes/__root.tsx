@@ -25,7 +25,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 	head: () => ({
 		meta: [
 			{
-				title: "skillguard — is this skill safe?",
+				title: "skill-guard — is this skill safe?",
 			},
 			{
 				name: "description",

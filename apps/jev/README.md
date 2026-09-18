@@ -1,14 +1,14 @@
-# skillguard
+# skill-guard
 
 Calibrated triage of **agent-facing artifacts** — Claude Code skills and MCP
 servers — using a System One model ([Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev)).
 
 An agent skill or MCP server is arbitrary text and code an AI agent _loads and
 obeys_. That makes it an injection surface with almost no tooling around it.
-skillguard reads one before you trust it and returns a **calibrated risk with a
+skill-guard reads one before you trust it and returns a **calibrated risk with a
 routing decision** — not a chatbot opinion.
 
-> This is the **engine package** of the skillguard monorepo (`apps/jev`). For the whole project — the web UI, the server, and how the three fit together — see the [root README](../../README.md) and [`docs/`](../../docs).
+> This is the **engine package** of the skill-guard monorepo (`apps/jev`). For the whole project — the web UI, the server, and how the three fit together — see the [root README](../../README.md) and [`docs/`](../../docs).
 
 ## Why System One and not an LLM
 
@@ -58,15 +58,15 @@ the risk drop when an assurance is injected into known-malicious fixtures.
 ```bash
 uv sync
 # no API key needed: heuristic fake client proves the plumbing
-uv run skillguard --fake scan ~/.claude/skills
-uv run skillguard --fake explain ~/.claude/skills/tdd
+uv run skill-guard --fake scan ~/.claude/skills
+uv run skill-guard --fake explain ~/.claude/skills/tdd
 uv run python eval/harness.py run          # ROC-AUC + ECE calibration
 uv run python eval/harness.py adversarial  # injection robustness
 uv run python -m pytest -q
 
 # real readings:
 export TYPESAFE_API_KEY=sk-...
-uv run skillguard --real scan ~/.claude/skills
+uv run skill-guard --real scan ~/.claude/skills
 ```
 
 ## Results on real Jev (68-artifact corpus)
@@ -100,8 +100,8 @@ uv run python eval/tune_weights.py                  # tune family weights (cache
 uv run python eval/build_catalog.py                 # regenerate eval/catalog.json for the web hub
 
 # CLI over local skills (no key needed with --fake):
-uv run skillguard --fake scan ~/.claude/skills
-uv run skillguard --real explain ~/.claude/skills/tdd
+uv run skill-guard --fake scan ~/.claude/skills
+uv run skill-guard --real explain ~/.claude/skills/tdd
 ```
 
 Family weights live in `src/skillguard/questions/skill_bank.yaml`; the block

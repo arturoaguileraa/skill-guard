@@ -15,7 +15,8 @@ dependencies = [
 ]
 
 [project.scripts]
-skillguard = "skillguard.cli:main"
+skill-guard = "skillguard.cli:main"
+skillguard = "skillguard.cli:main"  # legacy alias
 
 [build-system]
 requires = ["hatchling"]

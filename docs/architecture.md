@@ -2,7 +2,7 @@
 
 ## Overview
 
-skillguard is a monorepo of three request-time apps (`web`, `server`, `jev`) plus a batch `worker`, sharing one Postgres database. Each app has one job and a clean boundary to the next.
+skill-guard is a monorepo of three request-time apps (`web`, `server`, `jev`) plus a batch `worker`, sharing one Postgres database. Each app has one job and a clean boundary to the next.
 
 ```
 ┌────────────┐   oRPC /rpc/*   ┌────────────┐   HTTP /analyze  ┌────────────┐   HTTPS   ┌─────────┐

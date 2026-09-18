@@ -1,4 +1,4 @@
-"""skillguard -- triage agent-facing artifacts with a System One model."""
+"""skill-guard -- triage agent-facing artifacts with a System One model."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def cmd_scan(args) -> int:
 
     verdicts.sort(key=lambda vr: vr[0].risk, reverse=True)
 
-    table = Table(title=f"skillguard scan -- {len(artifacts)} artifacts")
+    table = Table(title=f"skill-guard scan -- {len(artifacts)} artifacts")
     table.add_column("risk", justify="right")
     table.add_column("decision")
     table.add_column("kind")
@@ -126,7 +126,7 @@ def cmd_explain(args) -> int:
 
 def main(argv=None) -> int:
     load_dotenv()
-    parser = argparse.ArgumentParser(prog="skillguard", description=__doc__)
+    parser = argparse.ArgumentParser(prog="skill-guard", description=__doc__)
     parser.add_argument("--bank", default="skill_bank", help="question bank name (default: skill_bank)")
     parser.add_argument("--fake", action="store_true", help="force the heuristic fake client")
     parser.add_argument("--real", dest="fake", action="store_false", help="require the real Jev API")

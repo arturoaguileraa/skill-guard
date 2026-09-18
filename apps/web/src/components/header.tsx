@@ -15,13 +15,13 @@ export default function Header() {
 				<Link
 					to="/"
 					className="group flex items-center gap-2.5 outline-none"
-					aria-label="skillguard home"
+					aria-label="skill-guard home"
 				>
 					<span className="flex size-7 items-center justify-center rounded-[--radius] bg-foreground font-display text-background text-sm transition-transform group-hover:-translate-y-px">
 						s
 					</span>
 					<span className="font-display text-[15px] tracking-tight">
-						skillguard
+						skill-guard
 					</span>
 				</Link>
 
