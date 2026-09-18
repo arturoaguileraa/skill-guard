@@ -8,48 +8,52 @@ import { z } from "zod";
 const JEV_SERVICE_URL = process.env.JEV_SERVICE_URL ?? "http://localhost:8000";
 
 export const signalSchema = z.object({
-  id: z.string(),
-  family: z.string(),
-  value: z.number(),
-  confidence: z.number(),
-  weight: z.number(),
+	id: z.string(),
+	family: z.string(),
+	value: z.number(),
+	confidence: z.number(),
+	weight: z.number(),
 });
 
 export const familyRiskSchema = z.object({
-  family: z.string(),
-  risk: z.number(),
-  weight: z.number(),
-  label: z.string(),
+	family: z.string(),
+	risk: z.number(),
+	weight: z.number(),
+	label: z.string(),
 });
 
 export const analyzeResultSchema = z.object({
-  identity: z.string(),
-  risk: z.number(),
-  decision: z.enum(["allow", "escalate", "block"]),
-  mean_confidence: z.number(),
-  integrity_warning: z.string().nullable(),
-  families: z.array(familyRiskSchema),
-  signals: z.array(signalSchema),
-  input_tokens: z.number(),
-  cost_usd: z.number(),
-  latency_ms: z.number(),
-  model: z.string(),
-  request_id: z.string().nullable(),
-  error: z.string().nullable().optional(),
+	identity: z.string(),
+	risk: z.number(),
+	decision: z.enum(["allow", "escalate", "block"]),
+	mean_confidence: z.number(),
+	integrity_warning: z.string().nullable(),
+	families: z.array(familyRiskSchema),
+	signals: z.array(signalSchema),
+	input_tokens: z.number(),
+	cost_usd: z.number(),
+	latency_ms: z.number(),
+	model: z.string(),
+	request_id: z.string().nullable(),
+	thresholds: z.object({ block: z.number(), review: z.number() }),
+	error: z.string().nullable().optional(),
 });
 
 export type AnalyzeResult = z.infer<typeof analyzeResultSchema>;
 
-export async function callJev(text: string, identity?: string): Promise<AnalyzeResult> {
-  const res = await fetch(`${JEV_SERVICE_URL}/analyze`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ text, identity }),
-  });
-  if (!res.ok) {
-    throw new Error(`jev service ${res.status}: ${await res.text()}`);
-  }
-  return analyzeResultSchema.parse(await res.json());
+export async function callJev(
+	text: string,
+	identity?: string,
+): Promise<AnalyzeResult> {
+	const res = await fetch(`${JEV_SERVICE_URL}/analyze`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ text, identity }),
+	});
+	if (!res.ok) {
+		throw new Error(`jev service ${res.status}: ${await res.text()}`);
+	}
+	return analyzeResultSchema.parse(await res.json());
 }
 
 export const catalogItemSchema = z.object({
@@ -83,6 +87,7 @@ export type CatalogItem = z.infer<typeof catalogItemSchema>;
 
 export async function fetchCatalog(): Promise<Catalog> {
 	const res = await fetch(`${JEV_SERVICE_URL}/catalog`);
-	if (!res.ok) throw new Error(`jev service ${res.status}: ${await res.text()}`);
+	if (!res.ok)
+		throw new Error(`jev service ${res.status}: ${await res.text()}`);
 	return catalogSchema.parse(await res.json());
 }

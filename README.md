@@ -4,7 +4,7 @@
 
 An agent skill or MCP server is arbitrary text and code an AI agent *loads and obeys*. That makes it an injection surface with almost no tooling around it. skillguard reads one before you trust it and returns a **calibrated risk with a routing decision** — powered by a System One model ([TypeSafe Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev)), not a chatbot.
 
-![tester · why · hub](docs/architecture.md)
+Three sections — a live tester, a value-prop page, and a hub of everything we've analyzed. See [`docs/architecture.md`](docs/architecture.md).
 
 ## Why a System One model, not an LLM
 
