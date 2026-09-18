@@ -17,7 +17,7 @@ Guidance for agents working in this repo. Keep it current when architecture or c
 | `packages/api` | oRPC router + Zod | `analyze` + `catalog` procedures; `src/jev.ts` is the sole TS↔Jev boundary |
 | `packages/ui` | shadcn (base-lyra) on base-ui, Tailwind v4 | Shared components |
 
-Data flow: **web → `/rpc/*` (server) → `POST /analyze` · `GET /catalog` (jev) → Jev API**. The TS side never talks to Jev directly — that boundary is deliberate (ADR-0002).
+Data flow: **analyze:** web → `/rpc/*` (server) → `POST /analyze` (jev) → Jev API. **catalog (hub):** web → `/rpc/*` (server) → Neon Postgres (`DATABASE_URL`), else jev `GET /catalog` (static fallback). The TS side never talks to Jev's API directly — that boundary is deliberate (ADR-0002); reading the results DB is the one deliberate exception (ADR-0009). Production is one Vercel project with three services (ADR-0009, `docs/architecture.md`).
 
 ## Run & verify
 
@@ -41,9 +41,12 @@ cd apps/jev && uv run python -m pytest -q         # engine tests (NOT `pytest`, 
 - **UI real→real invariant:** the risk dial must never flash a wrong intermediate number. `view = calibrated ?? preview`; the instant heuristic (`apps/web/src/lib/provisional.ts`) only fills the first paint; `keepPreviousData` holds the last real reading while re-analyzing. Preserve this when editing `apps/web/src/routes/index.tsx`.
 - **oRPC contract:** don't change the `analyze` / `catalog` output shapes without updating `packages/api/src/jev.ts` (Zod) on both sides.
 - **Design system** (see `docs/design-system.md`): Host Grotesk + JetBrains Mono, monochrome ink/paper, color reserved for risk, hairline structure, `motion` (framer-motion) for reveals. Tokens in `apps/web/src/index.css`; motion primitives in `apps/web/src/components/motion.tsx`.
-- **The hub catalog is static.** It's generated offline from cached Jev readings — no live calls. After changing the corpus or weights, regenerate: `cd apps/jev && uv run python eval/build_catalog.py`.
+- **The hub reads Neon in production** (paginated by keyset cursor; real artifacts have no ground-truth label). Without `DATABASE_URL` it falls back to the static demo catalog, generated offline from cached readings — regenerate after corpus/weight changes: `cd apps/jev && uv run python eval/build_catalog.py`.
 
 ## Gotchas
+
+- **Deploying:** `vercel deploy --prod` (or push to `main`). Verify with `curl` to `/rpc/*` **and** grep the built JS for `localhost`. The server bundle must stay self-contained and free of runtime `varlock`; `.vercelignore` must not exclude `.env.schema` (ADR-0009).
+- **Worker DB target:** only the `worker` CLI loads `.env`; ad-hoc `python -c` does not and silently falls back to local SQLite. The worker refuses heuristic scoring into Postgres without `TYPESAFE_API_KEY`.
 
 - base-ui `TooltipTrigger` uses `render={<el/>}`, **not** `asChild`.
 - Fonts load from Google Fonts in `apps/web/index.html`; `--font-sans` / `--font-mono` are overridden in `apps/web/src/index.css` (after the shared globals import).

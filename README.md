@@ -34,7 +34,7 @@ apps/jev      FastAPI + typesafe-sdk (Python)   → :8000   scoring engine; hold
 packages/api  oRPC router + Zod                           the sole TS↔Jev boundary
 ```
 
-Flow: **web → server (`/rpc/*`) → jev (`/analyze`, `/catalog`) → Jev API**. Details in [`docs/architecture.md`](docs/architecture.md).
+Flow: **analyze:** web → server (`/rpc/*`) → jev (`/analyze`) → Jev API · **hub:** web → server → Neon Postgres (filled by `apps/worker`). Details in [`docs/architecture.md`](docs/architecture.md).
 
 ## Run
 
