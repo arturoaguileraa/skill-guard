@@ -1189,8 +1189,8 @@
       "label": "malicious",
       "note": "remote_code: curl|bash install (RDD)",
       "risk": 0.9783,
-      "decision": "block",
-      "correct": true,
+      "decision": "escalate",
+      "correct": false,
       "families": [
         {
           "family": "remote_code",
@@ -1495,8 +1495,8 @@
       "label": "malicious",
       "note": "remote_code+conditional: sandbox-evading fetch-and-exec",
       "risk": 0.961,
-      "decision": "block",
-      "correct": true,
+      "decision": "escalate",
+      "correct": false,
       "families": [
         {
           "family": "remote_code",

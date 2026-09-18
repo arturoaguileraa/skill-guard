@@ -23,6 +23,10 @@ class QuestionSpec:
     # fires on benign work (e.g. "installs from a non-registry host") count for
     # less than the family as a whole without weakening its strong siblings.
     strength: float = 1.0
+    # True for questions whose "yes" is evidence of deception (concealing, straying
+    # from the declared purpose, sending data out, overriding rules) rather than of
+    # a risky-but-transparent capability. "malicious" requires some of it.
+    deception: bool = False
 
 
 @dataclass(frozen=True)
@@ -51,6 +55,7 @@ def load_bank(name: str = "skill_bank") -> Bank:
         criteria = entry.get("criteria")
         weight = float(families.get(family, {}).get("weight", 0.0))
         strength = float(entry.get("strength", 1.0))
+        deception = bool(entry.get("deception", False))
 
         if qtype == "noul":
             # YAML turns bare `true:`/`false:` keys into booleans; NoulCriteria
@@ -68,6 +73,6 @@ def load_bank(name: str = "skill_bank") -> Bank:
         else:
             raise ValueError(f"{qid}: unknown question type {qtype!r}")
 
-        specs[qid] = QuestionSpec(qid, family, qtype, weight, levels, strength)
+        specs[qid] = QuestionSpec(qid, family, qtype, weight, levels, strength, deception)
 
     return Bank(raw["version"], raw["target"], families, specs, questions)

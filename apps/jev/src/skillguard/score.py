@@ -39,6 +39,12 @@ class Thresholds:
     # malicious example between 0.35 and 0.55, so recall there is unmeasured.
     review: float = 0.55
     min_confidence: float = 0.45
+    # "malicious" (block) needs at least this much evidence of DECEPTION (see
+    # QuestionSpec.deception). Risky-but-transparent capability -- installing with
+    # curl|sh, reading an API key from .env -- stays "suspicious". On 82 real
+    # blocks only 3 had any deception evidence; 0.4 sits between the weakest real
+    # malicious fixtures (0.62) and the benign fixtures (<= 0.33).
+    min_deception: float = 0.40
 
 
 @dataclass
@@ -52,6 +58,7 @@ class Verdict:
     mean_confidence: float
     integrity_warning: str | None = None
     notes: list[str] = field(default_factory=list)
+    deception: float = 0.0
 
 
 def noisy_or(values: list[float]) -> float:
@@ -65,13 +72,17 @@ def noisy_or(values: list[float]) -> float:
 
 
 def decide(risk: float, mean_conf: float, integrity: str | None,
-           th: Thresholds) -> tuple["Decision", str | None]:
+           th: Thresholds, deception: float | None = None) -> tuple["Decision", str | None]:
     """Risk -> decision. Pure, so stored results can be re-decided offline when
     thresholds change (see `worker rethreshold`) without any Jev call."""
     if integrity:
         return Decision.ESCALATE, "escalated on integrity warning"
     if risk >= th.block:
         if mean_conf >= th.min_confidence:
+            if deception is not None and deception < th.min_deception:
+                return Decision.ESCALATE, (
+                    f"risk {risk:.2f} over block threshold but no evidence of deception "
+                    f"({deception:.2f}) -- risky capability only")
             return Decision.BLOCK, None
         return Decision.ESCALATE, (
             f"risk {risk:.2f} over block threshold but confidence {mean_conf:.2f} is low")
@@ -136,7 +147,12 @@ def score(reading: Reading, bank: Bank, thresholds: Thresholds | None = None) ->
                 f"treat this reading as possibly steered"
             )
 
-    decision, note = decide(risk, mean_conf, integrity, th)
+    deception = max(
+        (reading.values[q] * reading.confidence.get(q, 1.0)
+         for q, spec in bank.specs.items() if spec.deception and q in reading.values),
+        default=0.0,
+    )
+    decision, note = decide(risk, mean_conf, integrity, th, deception)
     if note:
         notes.append(note)
 
@@ -148,6 +164,7 @@ def score(reading: Reading, bank: Bank, thresholds: Thresholds | None = None) ->
         family_risk=family_risk,
         top_signals=top,
         mean_confidence=mean_conf,
+        deception=deception,
         integrity_warning=integrity,
         notes=notes,
     )

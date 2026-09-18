@@ -10,16 +10,16 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Reveal } from "@/components/motion";
 import { SensitivityPanel } from "@/components/sensitivity";
 import { computeProvisional, findFlaggedPhrases } from "@/lib/provisional";
 import {
 	findLure,
+	type Lure,
 	matchPreset,
 	PRESETS,
-	removeLure,
 	signalDescription,
 	signalLabel,
 } from "@/lib/skillguard";
@@ -247,6 +247,102 @@ function DeltaResult({
 	);
 }
 
+/**
+ * The textarea with the attack paragraph marked in place. A textarea can't style
+ * a range, so a transparent-text mirror sits behind it (same font, wrap and
+ * padding) and paints the highlight; the textarea stays on top and editable.
+ * The tag above the paragraph selects it on click, so ⌫ is all it takes.
+ */
+function LureEditor({
+	value,
+	onChange,
+	lure,
+}: {
+	value: string;
+	onChange: (next: string) => void;
+	lure: Lure | null;
+}) {
+	const area = useRef<HTMLTextAreaElement>(null);
+	const wrap = useRef<HTMLDivElement>(null);
+	const mark = useRef<HTMLElement>(null);
+	const [tagTop, setTagTop] = useState<number | null>(null);
+
+	// Grow with the content so the mirror never needs scroll syncing.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: value drives the height
+	useLayoutEffect(() => {
+		const el = area.current;
+		if (!el) return;
+		el.style.height = "auto";
+		el.style.height = `${Math.max(el.scrollHeight, 384)}px`;
+	}, [value]);
+
+	// Anchor the tag to the first line of the marked paragraph.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-measure on edits
+	useLayoutEffect(() => {
+		const measure = () => {
+			const box = mark.current?.getClientRects()[0];
+			const host = wrap.current?.getBoundingClientRect();
+			setTagTop(box && host ? box.top - host.top : null);
+		};
+		measure();
+		const ro = new ResizeObserver(measure);
+		if (wrap.current) ro.observe(wrap.current);
+		return () => ro.disconnect();
+	}, [value, lure]);
+
+	function selectLure() {
+		if (!lure || !area.current) return;
+		area.current.focus();
+		area.current.setSelectionRange(lure.start, lure.end);
+	}
+
+	const type =
+		"p-4 font-mono text-[13px] leading-relaxed whitespace-pre-wrap break-words";
+
+	return (
+		<div ref={wrap} className="relative flex-1">
+			<div
+				aria-hidden
+				className={`pointer-events-none absolute inset-0 text-transparent ${type}`}
+			>
+				{lure ? (
+					<>
+						{value.slice(0, lure.start)}
+						<mark
+							ref={mark}
+							className="animate-pulse rounded-sm bg-red-500/15 box-decoration-clone text-transparent underline decoration-red-500 decoration-wavy underline-offset-4"
+						>
+							{value.slice(lure.start, lure.end)}
+						</mark>
+						{value.slice(lure.end)}
+					</>
+				) : (
+					value
+				)}
+			</div>
+			<textarea
+				ref={area}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				spellCheck={false}
+				placeholder="Paste a Claude Code skill or MCP server definition…"
+				className={`relative block w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-muted-foreground/60 ${type}`}
+			/>
+			{lure && tagTop !== null && (
+				<button
+					type="button"
+					onClick={selectLure}
+					style={{ top: Math.max(tagTop - 24, 2) }}
+					className="absolute left-4 flex items-center gap-1.5 rounded-[--radius] border border-red-500/40 bg-background px-2 py-0.5 font-mono text-[11px] text-red-600 shadow-sm transition-colors hover:bg-red-500/10 dark:text-red-400"
+				>
+					<span className="size-1.5 rounded-full bg-red-500" />
+					This paragraph is the attack — select it, hit ⌫, watch the verdict
+				</button>
+			)}
+		</div>
+	);
+}
+
 function TesterRoute() {
 	const [text, setText] = useState(PRESETS[0].text);
 	// The pristine exfil text, kept once the visitor deletes its attack paragraph.
@@ -345,16 +441,7 @@ function TesterRoute() {
 						</button>
 					);
 				})}
-				{lure ? (
-					<button
-						type="button"
-						onClick={() => edit(removeLure(text))}
-						className="ml-auto flex items-center gap-2 rounded-[--radius] border border-red-500/40 bg-red-500/10 px-3 py-1.5 font-mono text-red-600 text-xs transition-colors hover:bg-red-500/20 dark:text-red-400"
-					>
-						<span className="size-1.5 animate-pulse rounded-full bg-red-500" />
-						Delete malware part
-					</button>
-				) : showDelta ? (
+				{showDelta ? (
 					<button
 						type="button"
 						onClick={() => {
@@ -380,13 +467,7 @@ function TesterRoute() {
 							{lines} ln · {text.length} ch
 						</span>
 					</div>
-					<textarea
-						value={text}
-						onChange={(e) => edit(e.target.value)}
-						spellCheck={false}
-						placeholder="Paste a Claude Code skill or MCP server definition…"
-						className="min-h-[24rem] flex-1 resize-none bg-transparent p-4 font-mono text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground/60"
-					/>
+					<LureEditor value={text} onChange={edit} lure={lure} />
 					{flagged.length > 0 && (
 						<div className="flex flex-wrap gap-1.5 border-border border-t px-4 py-3">
 							<span className="label-mono mr-1 w-full">
@@ -528,6 +609,14 @@ function TesterRoute() {
 						families={calibrated.families}
 						defaultBlock={calibrated.thresholds.block}
 						defaultReview={calibrated.thresholds.review}
+						deception={
+							calibrated.thresholds.min_deception === undefined
+								? undefined
+								: {
+										value: calibrated.deception ?? 0,
+										min: calibrated.thresholds.min_deception,
+									}
+						}
 					/>
 				</div>
 			)}

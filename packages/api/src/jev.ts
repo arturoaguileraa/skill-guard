@@ -37,7 +37,13 @@ export const analyzeResultSchema = z.object({
 	latency_ms: z.number(),
 	model: z.string(),
 	request_id: z.string().nullable(),
-	thresholds: z.object({ block: z.number(), review: z.number() }),
+	thresholds: z.object({
+		block: z.number(),
+		review: z.number(),
+		// Additive: evidence of deception "malicious" requires (see ADR-0004).
+		min_deception: z.number().optional(),
+	}),
+	deception: z.number().optional(),
 	error: z.string().nullable().optional(),
 });
 

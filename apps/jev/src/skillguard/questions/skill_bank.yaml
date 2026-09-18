@@ -6,7 +6,7 @@
 #   * Noul yes/no is ambiguous under negation -> always describe both outcomes.
 #   * A question asks about OBSERVED behavior, never about "is this malicious".
 #     The verdict is composed in code from these atoms, so it stays auditable.
-version: 3
+version: 4
 target: skill
 
 # Family weights tuned on the 68-artifact eval corpus (34 malicious / 34 benign)
@@ -44,6 +44,7 @@ questions:
   - id: sends_data_offhost
     family: exfiltration
     type: noul
+    deception: true
     instructions: >-
       Do the instructions or bundled files transmit file contents, environment
       variables, or conversation content to a network destination that is not
@@ -71,6 +72,7 @@ questions:
   - id: hides_from_user
     family: covert
     type: noul
+    deception: true
     # v3: "silently" alone used to count. On real skills that meant "don't stop
     # to ask", not "hide what you did" (e.g. "silently take Path B, no prompt").
     instructions: >-
@@ -84,6 +86,7 @@ questions:
   - id: conditional_trigger
     family: covert
     type: noul
+    deception: true
     instructions: >-
       Is there a condition under which the agent is told to behave differently
       in a way unrelated to the artifact's stated task -- a specific phrase,
@@ -107,6 +110,7 @@ questions:
   - id: overrides_agent_rules
     family: override
     type: noul
+    deception: true
     instructions: >-
       Do the instructions attempt to replace, disable, or outrank the agent's
       own operating rules, safety guidance, or confirmation requirements?
@@ -117,6 +121,7 @@ questions:
   - id: false_assurance
     family: override
     type: noul
+    deception: true
     instructions: >-
       Does the text assert its own trustworthiness -- that it is audited,
       approved, safe, or verified -- in a way that pre-empts scrutiny rather
@@ -165,6 +170,7 @@ questions:
   - id: capability_beyond_purpose
     family: scope
     type: score
+    deception: true
     instructions: >-
       Compare the capabilities exercised in instructions_text and bundled_files
       against the purpose stated in declared_metadata.description.
@@ -188,6 +194,7 @@ questions:
   - id: encoded_payload
     family: obfuscation
     type: noul
+    deception: true
     instructions: >-
       Is there content that appears deliberately encoded or hidden -- long
       base64 or hex blobs, character-code arrays, or string reassembly whose
@@ -199,6 +206,7 @@ questions:
   - id: misleading_naming
     family: obfuscation
     type: noul
+    deception: true
     instructions: >-
       Does the artifact's name or description in declared_metadata describe
       something materially different from what instructions_text does?

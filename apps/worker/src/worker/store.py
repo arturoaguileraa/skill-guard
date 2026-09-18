@@ -222,16 +222,25 @@ def rethreshold(engine: Engine) -> dict:
     """Re-decide every stored result from its stored risk under the engine's
     current thresholds. Zero Jev calls: decisions are a pure function of the
     risk, the mean confidence and the integrity warning we already saved."""
+    from skillguard.bank import load_bank
     from skillguard.score import Thresholds, decide
 
     th = Thresholds()
+    dq = [q for q, s in load_bank().specs.items() if s.deception]
     changed: dict[str, int] = {}
     with engine.begin() as conn:
         rows = conn.execute(select(
             results.c.artifact_hash, results.c.risk, results.c.mean_confidence,
-            results.c.integrity_warning, results.c.decision)).all()
+            results.c.integrity_warning, results.c.decision,
+            results.c.readings)).all()
         for r in rows:
-            new, _ = decide(r.risk, r.mean_confidence or 0.0, r.integrity_warning, th)
+            # Rows scored before readings were stored have no deception evidence to
+            # judge: leave the gate off for them rather than guess.
+            dec = None
+            if r.readings:
+                dec = max((v["v"] * v["c"] for q, v in r.readings.items() if q in dq),
+                          default=0.0)
+            new, _ = decide(r.risk, r.mean_confidence or 0.0, r.integrity_warning, th, dec)
             if new.value != r.decision:
                 key = f"{r.decision}->{new.value}"
                 changed[key] = changed.get(key, 0) + 1
