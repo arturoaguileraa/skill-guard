@@ -307,15 +307,15 @@ function HubRoute() {
 							value={q}
 							onChange={(e) => setQ(e.target.value)}
 							placeholder="Search a skill name or technique…"
-							className="flex-1 rounded-[--radius] border border-border bg-background px-3 py-1.5 font-mono text-sm outline-none focus:border-foreground/40"
+							className="flex-1 rounded-[--radius] border border-border bg-background px-3 py-2.5 font-mono text-base outline-none focus:border-foreground/40 sm:py-1.5 sm:text-sm"
 						/>
-						<div className="flex gap-2">
+						<div className="flex flex-wrap gap-2">
 							{FILTERS.map((f) => (
 								<button
 									key={f}
 									type="button"
 									onClick={() => setFilter(f)}
-									className={`rounded-[--radius] border px-3 py-1.5 font-mono text-xs transition-colors ${
+									className={`flex min-h-11 items-center rounded-[--radius] border px-3 py-2 font-mono text-xs transition-colors sm:min-h-0 sm:py-1.5 ${
 										filter === f
 											? "border-foreground bg-foreground text-background"
 											: "border-border text-muted-foreground hover:text-foreground"
