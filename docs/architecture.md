@@ -43,7 +43,7 @@ The oRPC router (`analyze`, `catalog`) and Zod schemas. **`src/jev.ts` is the on
 ### apps/web — the UI (TypeScript)
 
 TanStack Router file-based routes:
-- `/` **Tester** — live analyzer. Debounced (180ms) oRPC `analyze`; instant client-side heuristic preview replaced by the calibrated reading (the "real→real" invariant, [ADR-0005](adr/0005-instant-provisional-and-latency.md)).
+- `/` **Tester** — live analyzer. Debounced (180ms) oRPC `analyze`; instant client-side heuristic preview replaced by the calibrated reading (the "real→real" invariant, [ADR-0005](adr/0005-instant-provisional-and-latency.md)). A **sensitivity panel** recomputes the verdict client-side from the returned family risks under user-adjusted weights + block threshold (same cross-family formula as `score.py`, `apps/web/src/lib/recompute.ts`) — no black box, no extra Jev call.
 - `/why` — value proposition.
 - `/hub` — the analyzed-skills catalog via oRPC `catalog`.
 

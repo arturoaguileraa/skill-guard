@@ -100,6 +100,7 @@ class AnalyzeResponse(BaseModel):
     latency_ms: float
     model: str
     request_id: str | None
+    thresholds: dict[str, float]
     error: str | None = None
 
 
@@ -133,8 +134,9 @@ def _compute(req: AnalyzeRequest) -> AnalyzeResponse:
     eng = _engine()
     bank = eng.bank
     art = artifact_from_text(req.text, req.identity)
+    th = Thresholds()
     reading = eng.read(art)
-    verdict = score(reading, bank, Thresholds())
+    verdict = score(reading, bank, th)
 
     families = [
         FamilyRisk(family=fam, risk=r,
@@ -162,6 +164,7 @@ def _compute(req: AnalyzeRequest) -> AnalyzeResponse:
         latency_ms=reading.latency_ms,
         model=eng.model,
         request_id=reading.request_id,
+        thresholds={"block": th.block, "review": th.review},
         error=reading.error,
     )
 

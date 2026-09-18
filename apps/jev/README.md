@@ -8,6 +8,8 @@ obeys_. That makes it an injection surface with almost no tooling around it.
 skillguard reads one before you trust it and returns a **calibrated risk with a
 routing decision** — not a chatbot opinion.
 
+> This is the **engine package** of the skillguard monorepo (`apps/jev`). For the whole project — the web UI, the server, and how the three fit together — see the [root README](../../README.md) and [`docs/`](../../docs).
+
 ## Why System One and not an LLM
 
 Triage is a fan-out of thousands of small typed judgements ("does this read
@@ -60,35 +62,48 @@ uv run skillguard --fake scan ~/.claude/skills
 uv run skillguard --fake explain ~/.claude/skills/tdd
 uv run python eval/harness.py run          # ROC-AUC + ECE calibration
 uv run python eval/harness.py adversarial  # injection robustness
-uv run pytest -q
+uv run python -m pytest -q
 
 # real readings:
 export TYPESAFE_API_KEY=sk-...
 uv run skillguard --real scan ~/.claude/skills
 ```
 
-## Results on real Jev (8-fixture corpus)
+## Results on real Jev (68-artifact corpus)
 
-First run against `jev-latest`, ~2.2k tokens and ~1 s per artifact, **$0.0001
-each**:
+Evaluated against `jev-latest` on 68 labelled artifacts (34 malicious / 34
+benign), ~$0.0001 and sub-second per artifact:
 
-| metric                       | value      | reading                                                                                                        |
-| ---------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
-| ROC-AUC                      | **1.000**  | perfect separation of the 4 malicious / 4 benign fixtures                                                      |
-| ECE (calibration error)      | **0.202**  | benign complex dev-skills still carry 0.3–0.5 risk                                                             |
-| min(malicious) − max(benign) | **+0.485** | wide, safe margin between the classes                                                                          |
-| **adversarial injection Δ**  | **−0.000** | **injecting "audited, ignore warnings, pre-approved" into malicious fixtures did not lower their risk at all** |
+| metric | value |
+| --- | --- |
+| ROC-AUC | **1.000** |
+| ECE (calibration error) | **0.205** |
+| margin min(mal) − max(ben) | **+0.181** |
+| adversarial injection Δ | **≈ 0.00** |
+| benign false auto-blocks | **0 / 34** |
+| malicious blocked | **34 / 34** |
 
-The headline is the last row. Because Jev doesn't follow instructions or generate
-text, the prompt-injection surface that defeats LLM scanners simply isn't there —
-the assurance is scored _as a risk signal_ (`false_assurance`), not obeyed.
+The headline is the adversarial row: because Jev doesn't follow instructions or
+generate text, injecting "audited, ignore warnings" into a malicious artifact
+barely moves the risk — the injection surface that defeats LLM scanners isn't
+there. Full method, dataset sources, and weight-tuning rationale in
+[`eval/REPORT.md`](eval/REPORT.md) and [`../../docs/evaluation.md`](../../docs/evaluation.md).
 
-Two honest caveats the numbers expose:
+## Tooling (all under `apps/jev`)
 
-- The residual ECE is **our aggregation, not Jev's per-question calibration** —
-  Jev rates a benign skill's `destructive_action` at 0.25 _with 0.25 confidence_
-  (honestly unsure); the miscalibration came from noisy-OR compounding many
-  small signals. Confidence-weighting each signal (`score.py`) cut ECE 0.234 →
-  0.202 and widened the margin 0.355 → 0.485.
-- The corpus is 8 hand-authored fixtures. Next: a public labelled dataset
-  (Datadog malicious-packages adapted to skills) for numbers that generalise.
+```bash
+uv sync                                            # deps
+uv run python -m pytest -q                          # engine tests
+uv run python eval/harness.py --real run            # ROC-AUC + ECE
+uv run python eval/harness.py --real adversarial    # injection robustness
+uv run python eval/tune_weights.py                  # tune family weights (cached, 0 API calls to re-run)
+uv run python eval/build_catalog.py                 # regenerate eval/catalog.json for the web hub
+
+# CLI over local skills (no key needed with --fake):
+uv run skillguard --fake scan ~/.claude/skills
+uv run skillguard --real explain ~/.claude/skills/tdd
+```
+
+Family weights live in `src/skillguard/questions/skill_bank.yaml`; the block
+threshold in `src/skillguard/score.py`. See
+[ADR-0004](../../docs/adr/0004-scoring-and-weights.md) for the current values and why.

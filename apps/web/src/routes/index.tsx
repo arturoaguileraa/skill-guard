@@ -8,6 +8,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Reveal } from "@/components/motion";
+import { SensitivityPanel } from "@/components/sensitivity";
 import { computeProvisional, findFlaggedPhrases } from "@/lib/provisional";
 import {
 	matchPreset,
@@ -402,6 +403,16 @@ function TesterRoute() {
 					)}
 				</section>
 			</div>
+
+			{hasCal && calibrated && (
+				<div className="overflow-hidden border-border border-x border-b bg-background">
+					<SensitivityPanel
+						families={calibrated.families}
+						defaultBlock={calibrated.thresholds.block}
+						defaultReview={calibrated.thresholds.review}
+					/>
+				</div>
+			)}
 
 			<nav className="mt-14 grid gap-px overflow-hidden border border-border bg-border sm:grid-cols-2">
 				<Link

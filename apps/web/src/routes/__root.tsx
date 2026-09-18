@@ -53,9 +53,9 @@ function RootComponent() {
 				storageKey="vite-ui-theme"
 			>
 				<TooltipProvider delay={200}>
-					<div className="grid h-svh grid-rows-[auto_1fr]">
+					<div className="min-h-svh">
 						<Header />
-						<main className="overflow-y-auto">
+						<main>
 							<Outlet />
 						</main>
 					</div>
