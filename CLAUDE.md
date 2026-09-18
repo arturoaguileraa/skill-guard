@@ -49,6 +49,7 @@ cd apps/jev && uv run python -m pytest -q         # engine tests (NOT `pytest`, 
 ## Gotchas
 
 - **Deploying:** `vercel deploy --prod` (or push to `main`). Verify with `curl` to `/rpc/*` **and** grep the built JS for `localhost`. The server bundle must stay self-contained and free of runtime `varlock`; `.vercelignore` must not exclude `.env.schema` (ADR-0009).
+- **Link previews:** `apps/web/index.html` carries Open Graph + Twitter tags; the image is a real screenshot of the landing page, `apps/web/public/og.png` (1200×628, ~130 KB — WhatsApp drops big ones). Regenerate it when the first screen changes: `bash apps/web/scripts/og-image.sh` (macOS: Chrome headless + sips; captures production). Tags are static (crawlers don't run JS), so every route shares them; the URLs are absolute and point at `https://jev-analysis.vercel.app`.
 - **Worker DB target:** only the `worker` CLI loads `.env`; ad-hoc `python -c` does not and silently falls back to local SQLite. The worker refuses heuristic scoring into Postgres without `TYPESAFE_API_KEY`.
 
 - base-ui `TooltipTrigger` uses `render={<el/>}`, **not** `asChild`.
