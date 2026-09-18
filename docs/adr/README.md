@@ -11,3 +11,4 @@ Short records of the decisions that shaped skillguard and their trade-offs. Each
 | [0005](0005-instant-provisional-and-latency.md) | Instant heuristic preview + warm pool + cache; the real→real invariant | Accepted |
 | [0006](0006-static-synthetic-hub-catalog.md) | The hub is a static catalog of synthetic-but-grounded fixtures | Accepted |
 | [0007](0007-awwwards-design-system.md) | awwwards-grade design system: grotesk + mono, monochrome + risk color | Accepted |
+| [0008](0008-mass-analysis-worker.md) | Mass-analysis worker + database-backed catalog (Neon, SKIP LOCKED queue) | Accepted |
