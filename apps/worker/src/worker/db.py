@@ -50,6 +50,10 @@ artifacts = Table(
     Column("source_url", Text),
     Column("identity", String(256)),
     Column("kind", String(32)),
+    Column("repo", String(256)),  # owner/repo (GitHub sources)
+    Column("path", Text),  # path of the SKILL.md inside the repo
+    Column("name", String(256)),  # frontmatter `name`
+    Column("description", Text),  # frontmatter `description`
     Column("content", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), server_default=func.now()),
@@ -104,11 +108,28 @@ _PG_INDEXES = (
     "ON artifacts USING gin (identity gin_trgm_ops)",
     "CREATE INDEX IF NOT EXISTS artifacts_source_url_trgm_idx "
     "ON artifacts USING gin (source_url gin_trgm_ops)",
+    "CREATE INDEX IF NOT EXISTS artifacts_name_trgm_idx "
+    "ON artifacts USING gin (name gin_trgm_ops)",
+    "CREATE INDEX IF NOT EXISTS artifacts_description_trgm_idx "
+    "ON artifacts USING gin (description gin_trgm_ops)",
 )
+
+
+def _add_missing_columns(engine: Engine) -> None:
+    """create_all never alters existing tables; add columns introduced later."""
+    from sqlalchemy import inspect
+
+    have = {c["name"] for c in inspect(engine).get_columns("artifacts")}
+    with engine.begin() as conn:
+        for col in artifacts.columns:
+            if col.name not in have:
+                ddl = f"ALTER TABLE artifacts ADD COLUMN {col.name} {col.type.compile(engine.dialect)}"
+                conn.exec_driver_sql(ddl)
 
 
 def init_db(engine: Engine) -> None:
     metadata.create_all(engine)
+    _add_missing_columns(engine)
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
             for stmt in _PG_INDEXES:

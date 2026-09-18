@@ -72,6 +72,10 @@ export const catalogItemSchema = z.object({
 	),
 	top_signals: z.array(z.object({ id: z.string(), value: z.number() })),
 	synthetic: z.boolean(),
+	// Additive: where the artifact lives and what it says about itself.
+	repo: z.string().nullable().optional(),
+	path: z.string().nullable().optional(),
+	description: z.string().nullable().optional(),
 });
 
 export const catalogSchema = z.object({
@@ -129,3 +133,21 @@ export async function fetchCatalog(input?: CatalogInput): Promise<Catalog> {
 		source: "static",
 	};
 }
+
+export const artifactInputSchema = z.object({
+	slug: z.string().regex(/^[0-9a-f]{8,64}$/),
+});
+
+/** The stored artifact text. Untrusted third-party content: render as plain text. */
+export const artifactSchema = z.object({
+	slug: z.string(),
+	name: z.string(),
+	repo: z.string().nullable(),
+	path: z.string().nullable(),
+	source_url: z.string().nullable(),
+	content: z.string(),
+	size: z.number(),
+	truncated: z.boolean(),
+});
+
+export type Artifact = z.infer<typeof artifactSchema>;

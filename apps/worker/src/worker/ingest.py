@@ -85,7 +85,9 @@ def ingest_github(engine: Engine, query: str = "filename:SKILL.md",
                     engine, content=body, source="github",
                     source_url=it.get("html_url"),
                     identity=it.get("repository", {}).get("full_name"),
-                    kind="skill")
+                    kind="skill",
+                    repo=it.get("repository", {}).get("full_name"),
+                    path=it.get("path"))
                 enqueued += int(new)
             if seen >= max_results:
                 break

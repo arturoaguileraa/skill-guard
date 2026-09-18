@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 
-import type { Catalog, CatalogInput } from "./jev";
+import type { Artifact, Catalog, CatalogInput } from "./jev";
 
 /**
  * Catalog read path backed by Postgres (Neon). Provider-neutral: it only needs
@@ -41,7 +41,9 @@ export async function catalogFromDb(input: CatalogInput): Promise<Catalog> {
 	const q = input.q?.trim();
 	if (q) {
 		const p = bind(`%${escapeLike(q)}%`);
-		filters.push(`(a.identity ILIKE ${p} OR a.source_url ILIKE ${p})`);
+		filters.push(
+			`(a.name ILIKE ${p} OR a.identity ILIKE ${p} OR a.source_url ILIKE ${p} OR a.description ILIKE ${p})`,
+		);
 	}
 	if (input.decision) filters.push(`r.decision = ${bind(input.decision)}`);
 	const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
@@ -65,7 +67,8 @@ export async function catalogFromDb(input: CatalogInput): Promise<Catalog> {
 	const [rows, totalRows, statRows] = await Promise.all([
 		sql.query(
 			`SELECT r.artifact_hash, r.risk, r.decision, r.families, r.signals,
-				r.model, a.identity, a.kind, a.source, a.source_url
+				r.model, a.identity, a.kind, a.source, a.source_url,
+				a.name, a.repo, a.path, a.description
 			${from} ${pageWhere}
 			ORDER BY r.risk DESC, r.artifact_hash DESC
 			LIMIT ${limit + 1}`,
@@ -107,7 +110,12 @@ export async function catalogFromDb(input: CatalogInput): Promise<Catalog> {
 		next_cursor: hasMore && last ? `${last.risk}|${last.artifact_hash}` : null,
 		source: "db",
 		items: page.map((r) => ({
-			name: String(r.identity ?? String(r.artifact_hash).slice(0, 12)),
+			name: String(
+				r.name ?? r.identity ?? String(r.artifact_hash).slice(0, 12),
+			),
+			repo: (r.repo as string | null) ?? null,
+			path: (r.path as string | null) ?? null,
+			description: (r.description as string | null) ?? null,
 			slug: String(r.artifact_hash).slice(0, 16),
 			kind: String(r.kind ?? "skill"),
 			// Real artifacts have no ground truth: `label` only mirrors the verdict
@@ -118,9 +126,32 @@ export async function catalogFromDb(input: CatalogInput): Promise<Catalog> {
 			decision: r.decision as "allow" | "escalate" | "block",
 			correct: true,
 			families: (r.families as Catalog["items"][number]["families"]) ?? [],
-			top_signals:
-				(r.signals as Catalog["items"][number]["top_signals"]) ?? [],
+			top_signals: (r.signals as Catalog["items"][number]["top_signals"]) ?? [],
 			synthetic: false,
 		})),
+	};
+}
+
+const MAX_CONTENT = 200_000;
+
+/** One artifact's stored text, looked up by the hash prefix the hub exposes as `slug`. */
+export async function artifactFromDb(slug: string): Promise<Artifact | null> {
+	const rows = (await client().query(
+		`SELECT hash, name, identity, repo, path, source_url, content
+		FROM artifacts WHERE starts_with(hash, $1) LIMIT 1`,
+		[slug],
+	)) as Row[];
+	const r = rows[0];
+	if (!r) return null;
+	const content = String(r.content ?? "");
+	return {
+		slug: String(r.hash).slice(0, 16),
+		name: String(r.name ?? r.identity ?? String(r.hash).slice(0, 12)),
+		repo: (r.repo as string | null) ?? null,
+		path: (r.path as string | null) ?? null,
+		source_url: (r.source_url as string | null) ?? null,
+		content: content.slice(0, MAX_CONTENT),
+		size: content.length,
+		truncated: content.length > MAX_CONTENT,
 	};
 }

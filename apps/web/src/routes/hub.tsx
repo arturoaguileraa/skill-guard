@@ -1,5 +1,9 @@
 import type { CatalogItem } from "@jev-analysis/api/jev";
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import {
+	keepPreviousData,
+	useInfiniteQuery,
+	useQuery,
+} from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
@@ -34,8 +38,36 @@ function Stat({ n, label }: { n: string | number; label: string }) {
 	);
 }
 
+function SourceText({ slug }: { slug: string }) {
+	const { data, isLoading, isError } = useQuery({
+		...orpc.artifact.queryOptions({ input: { slug } }),
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+	if (isLoading)
+		return <p className="text-muted-foreground text-xs">Loading source…</p>;
+	if (isError || !data)
+		return (
+			<p className="text-muted-foreground text-xs">
+				Source text isn't available for this artifact.
+			</p>
+		);
+	return (
+		<div>
+			<div className="label-mono mb-2">
+				stored content · {data.size.toLocaleString()} chars
+				{data.truncated ? " (truncated)" : ""}
+			</div>
+			{/* Untrusted third-party text: always plain text, never markdown/HTML. */}
+			<pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-[--radius] border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
+				{data.content}
+			</pre>
+		</div>
+	);
+}
+
 function Row({ item }: { item: CatalogItem }) {
 	const [open, setOpen] = useState(false);
+	const [showSource, setShowSource] = useState(false);
 	return (
 		<div className="bg-background transition-colors hover:bg-muted/30">
 			<button
@@ -49,7 +81,9 @@ function Row({ item }: { item: CatalogItem }) {
 						<span className="label-mono shrink-0">{item.kind}</span>
 					</div>
 					<div className="truncate text-muted-foreground text-xs">
-						{item.note || "—"}
+						{item.repo && <span className="font-mono">{item.repo}</span>}
+						{item.repo && item.description ? " · " : ""}
+						{item.description || (item.repo ? "" : item.note) || "—"}
 					</div>
 				</div>
 
@@ -118,17 +152,38 @@ function Row({ item }: { item: CatalogItem }) {
 						) : (
 							". Scored automatically; there is no ground-truth label, so read it as triage, not proof."
 						)}
-						{/^https?:\/\//.test(item.note) && (
-							<a
-								href={item.note}
-								target="_blank"
-								rel="noreferrer noopener"
-								className="mt-2 block truncate font-mono text-[11px] underline underline-offset-2 hover:text-foreground"
-							>
-								view source ↗
-							</a>
+						{item.path && (
+							<div className="mt-2 truncate font-mono text-[11px]">
+								{item.path}
+							</div>
+						)}
+						{!item.synthetic && (
+							<div className="mt-2 flex flex-wrap gap-2">
+								{/^https?:\/\//.test(item.note) && (
+									<a
+										href={item.note}
+										target="_blank"
+										rel="noreferrer noopener"
+										className="rounded-[--radius] border border-border px-2 py-1 font-mono text-[11px] hover:text-foreground"
+									>
+										GitHub ↗
+									</a>
+								)}
+								<button
+									type="button"
+									onClick={() => setShowSource((v) => !v)}
+									className="rounded-[--radius] border border-border px-2 py-1 font-mono text-[11px] hover:text-foreground"
+								>
+									{showSource ? "Hide content" : "View content"}
+								</button>
+							</div>
 						)}
 					</div>
+					{showSource && !item.synthetic && (
+						<div className="sm:col-span-2">
+							<SourceText slug={item.slug} />
+						</div>
+					)}
 				</div>
 			)}
 		</div>
