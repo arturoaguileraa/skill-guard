@@ -20,6 +20,7 @@ import {
 	type Lure,
 	matchPreset,
 	PRESETS,
+	removeLure,
 	signalDescription,
 	signalLabel,
 } from "@/lib/skillguard";
@@ -149,7 +150,7 @@ function Meter({
 	mono?: boolean;
 }) {
 	const row = (
-		<div className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] items-center gap-3 py-1">
+		<div className="grid grid-cols-[minmax(0,1fr)_3.5rem_2rem] items-center gap-2 py-1 sm:grid-cols-[minmax(0,1fr)_5rem_2.5rem] sm:gap-3">
 			<span className={`truncate text-sm ${mono ? "font-mono text-xs" : ""}`}>
 				{label}
 			</span>
@@ -247,6 +248,89 @@ function DeltaResult({
 	);
 }
 
+/* ── responsive helpers ─────────────────────────────────────────────────── */
+function useMediaQuery(query: string) {
+	const [matches, setMatches] = useState(
+		() => typeof window !== "undefined" && window.matchMedia(query).matches,
+	);
+	useEffect(() => {
+		const mq = window.matchMedia(query);
+		const on = () => setMatches(mq.matches);
+		on();
+		mq.addEventListener("change", on);
+		return () => mq.removeEventListener("change", on);
+	}, [query]);
+	return matches;
+}
+
+/** True while `ref` is at least partly on screen. */
+function useInView(ref: React.RefObject<Element | null>) {
+	const [inView, setInView] = useState(false);
+	useEffect(() => {
+		const el = ref.current;
+		if (!el) return;
+		const io = new IntersectionObserver(
+			([e]) => setInView(Boolean(e?.isIntersecting)),
+			{ threshold: 0.2 },
+		);
+		io.observe(el);
+		return () => io.disconnect();
+	}, [ref]);
+	return inView;
+}
+
+/**
+ * Stacked layouts put the verdict a screen or two below the editor, so on small
+ * screens a fixed bar keeps it in sight while you edit — deleting the attack
+ * paragraph shows its effect right there. It uses the same `view` as the dial
+ * (real reading once available), so it never flashes a different number.
+ */
+function VerdictBar({
+	decision,
+	risk,
+	before,
+	after,
+	showDelta,
+	pending,
+	onOpen,
+}: {
+	decision: Decision;
+	risk: number;
+	before?: AnalyzeResult;
+	after?: AnalyzeResult;
+	showDelta: boolean;
+	pending: boolean;
+	onOpen: () => void;
+}) {
+	const meta = DECISION[decision];
+	return (
+		<button
+			type="button"
+			onClick={onOpen}
+			aria-label={`Verdict ${meta.label}, ${pct(risk)} malware risk. Show details`}
+			className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-border border-t bg-background/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-left backdrop-blur-md lg:hidden"
+		>
+			<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+				<span className={`size-2 shrink-0 rounded-full ${meta.dot}`} />
+				{showDelta && pending ? (
+					<span className="text-muted-foreground">Re-scoring without it…</span>
+				) : showDelta && before && after ? (
+					<>
+						<Verdict d={before.decision} risk={before.risk} />
+						<span className="text-muted-foreground">→</span>
+						<Verdict d={after.decision} risk={after.risk} />
+					</>
+				) : (
+					<Verdict d={decision} risk={risk} />
+				)}
+			</span>
+			<span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+				details ↓
+			</span>
+		</button>
+	);
+}
+
 /**
  * The textarea with the attack paragraph marked in place. A textarea can't style
  * a range, so a transparent-text mirror sits behind it (same font, wrap and
@@ -257,10 +341,19 @@ function LureEditor({
 	value,
 	onChange,
 	lure,
+	compact,
+	onDelete,
+	restorable,
+	onRestore,
 }: {
 	value: string;
 	onChange: (next: string) => void;
 	lure: Lure | null;
+	/** Touch or narrow screen: no in-text tag (it covers the text) and no ⌫ key. */
+	compact: boolean;
+	onDelete: () => void;
+	restorable: boolean;
+	onRestore: () => void;
 }) {
 	const area = useRef<HTMLTextAreaElement>(null);
 	const wrap = useRef<HTMLDivElement>(null);
@@ -296,50 +389,82 @@ function LureEditor({
 		area.current.setSelectionRange(lure.start, lure.end);
 	}
 
+	// 16px on phones: iOS Safari zooms the page into any field smaller than that.
 	const type =
-		"p-4 font-mono text-[13px] leading-relaxed whitespace-pre-wrap break-words";
+		"p-4 font-mono text-base sm:text-[13px] leading-relaxed whitespace-pre-wrap break-words";
 
 	return (
-		<div ref={wrap} className="relative flex-1">
-			<div
-				aria-hidden
-				className={`pointer-events-none absolute inset-0 text-transparent ${type}`}
-			>
-				{lure ? (
-					<>
-						{value.slice(0, lure.start)}
-						<mark
-							ref={mark}
-							className="animate-pulse rounded-sm bg-red-500/15 box-decoration-clone text-transparent underline decoration-red-500 decoration-wavy underline-offset-4"
-						>
-							{value.slice(lure.start, lure.end)}
-						</mark>
-						{value.slice(lure.end)}
-					</>
-				) : (
-					value
-				)}
-			</div>
-			<textarea
-				ref={area}
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				spellCheck={false}
-				placeholder="Paste a Claude Code skill or MCP server definition…"
-				className={`relative block w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-muted-foreground/60 ${type}`}
-			/>
-			{lure && tagTop !== null && (
+		<>
+			{compact && lure && (
 				<button
 					type="button"
-					onClick={selectLure}
-					style={{ top: Math.max(tagTop - 24, 2) }}
-					className="absolute left-4 flex items-center gap-1.5 rounded-[--radius] border border-red-500/40 bg-background px-2 py-0.5 font-mono text-[11px] text-red-600 shadow-sm transition-colors hover:bg-red-500/10 dark:text-red-400"
+					onClick={onDelete}
+					className="mx-4 mt-3 flex min-h-11 items-center gap-2.5 rounded-[--radius] border border-red-500/40 bg-red-500/10 px-3 py-2 text-left font-mono text-red-600 text-xs leading-snug transition-colors active:bg-red-500/20 dark:text-red-400"
 				>
-					<span className="size-1.5 rounded-full bg-red-500" />
-					This paragraph is the attack — select it, hit ⌫, watch the verdict
+					<span className="size-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+					<span>
+						The highlighted paragraph is the attack.{" "}
+						<strong className="font-semibold underline underline-offset-2">
+							Tap to delete it
+						</strong>
+					</span>
 				</button>
 			)}
-		</div>
+			{compact && restorable && (
+				<button
+					type="button"
+					onClick={onRestore}
+					className="mx-4 mt-3 flex min-h-11 items-center gap-2.5 rounded-[--radius] border border-border px-3 py-2 text-left font-mono text-muted-foreground text-xs leading-snug transition-colors active:bg-muted"
+				>
+					<span>
+						Attack paragraph removed.{" "}
+						<strong className="font-semibold text-foreground underline underline-offset-2">
+							Put it back
+						</strong>
+					</span>
+				</button>
+			)}
+			<div ref={wrap} className="relative flex-1">
+				<div
+					aria-hidden
+					className={`pointer-events-none absolute inset-0 text-transparent ${type}`}
+				>
+					{lure ? (
+						<>
+							{value.slice(0, lure.start)}
+							<mark
+								ref={mark}
+								className="animate-pulse rounded-sm bg-red-500/15 box-decoration-clone text-transparent underline decoration-red-500 decoration-wavy underline-offset-4"
+							>
+								{value.slice(lure.start, lure.end)}
+							</mark>
+							{value.slice(lure.end)}
+						</>
+					) : (
+						value
+					)}
+				</div>
+				<textarea
+					ref={area}
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					spellCheck={false}
+					placeholder="Paste a Claude Code skill or MCP server definition…"
+					className={`relative block w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-muted-foreground/60 ${type}`}
+				/>
+				{!compact && lure && tagTop !== null && (
+					<button
+						type="button"
+						onClick={selectLure}
+						style={{ top: Math.max(tagTop - 24, 2) }}
+						className="absolute left-4 flex items-center gap-1.5 rounded-[--radius] border border-red-500/40 bg-background px-2 py-0.5 font-mono text-[11px] text-red-600 shadow-sm transition-colors hover:bg-red-500/10 dark:text-red-400"
+					>
+						<span className="size-1.5 rounded-full bg-red-500" />
+						This paragraph is the attack — select it, hit ⌫, watch the verdict
+					</button>
+				)}
+			</div>
+		</>
 	);
 }
 
@@ -349,6 +474,10 @@ function TesterRoute() {
 	const [original, setOriginal] = useState<string | null>(null);
 	const queryClient = useQueryClient();
 	const debounced = useDebounced(text, 180);
+	// Touch or narrow: taps replace the select-then-⌫ gesture, and the verdict bar shows.
+	const compact = useMediaQuery("(max-width: 639px), (pointer: coarse)");
+	const verdictRef = useRef<HTMLElement>(null);
+	const verdictInView = useInView(verdictRef);
 
 	// Any edit funnels through here so we notice the paragraph being removed.
 	function edit(next: string) {
@@ -391,6 +520,14 @@ function TesterRoute() {
 
 	const lines = text.split("\n").length;
 
+	function restore() {
+		if (original) setText(original);
+		setOriginal(null);
+	}
+	function openVerdict() {
+		verdictRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+	}
+
 	return (
 		<div className="mx-auto w-full max-w-6xl px-5 pb-24">
 			{/* hero */}
@@ -431,7 +568,7 @@ function TesterRoute() {
 								setOriginal(null);
 								setText(p.text);
 							}}
-							className={`rounded-[--radius] border px-3 py-1.5 font-mono text-xs transition-colors ${
+							className={`flex min-h-11 items-center rounded-[--radius] border px-3 py-2 font-mono text-xs transition-colors sm:min-h-0 sm:py-1.5 ${
 								active
 									? "border-foreground bg-foreground text-background"
 									: "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
@@ -444,11 +581,8 @@ function TesterRoute() {
 				{showDelta ? (
 					<button
 						type="button"
-						onClick={() => {
-							if (original) setText(original);
-							setOriginal(null);
-						}}
-						className="ml-auto rounded-[--radius] border border-border px-3 py-1.5 font-mono text-muted-foreground text-xs transition-colors hover:border-foreground/40 hover:text-foreground"
+						onClick={restore}
+						className="ml-auto hidden rounded-[--radius] border border-border px-3 py-1.5 font-mono text-muted-foreground text-xs transition-colors hover:border-foreground/40 hover:text-foreground sm:block"
 					>
 						Put it back
 					</button>
@@ -467,7 +601,15 @@ function TesterRoute() {
 							{lines} ln · {text.length} ch
 						</span>
 					</div>
-					<LureEditor value={text} onChange={edit} lure={lure} />
+					<LureEditor
+						value={text}
+						onChange={edit}
+						lure={lure}
+						compact={compact}
+						onDelete={() => edit(removeLure(text))}
+						restorable={showDelta}
+						onRestore={restore}
+					/>
 					{flagged.length > 0 && (
 						<div className="flex flex-wrap gap-1.5 border-border border-t px-4 py-3">
 							<span className="label-mono mr-1 w-full">
@@ -490,15 +632,15 @@ function TesterRoute() {
 				</section>
 
 				{/* verdict */}
-				<section className="bg-background">
+				<section ref={verdictRef} className="scroll-mt-16 bg-background">
 					{query.isError ? (
 						<div className="flex h-full min-h-[24rem] flex-col items-center justify-center gap-2 p-6 text-center">
 							<span className="font-display text-lg text-red-500">
 								Analysis failed
 							</span>
 							<span className="max-w-xs text-muted-foreground text-sm">
-								{(query.error as Error).message}. Is the Jev service on :8000
-								and the server on :3000?
+								We couldn't analyze this just now. Check your connection and try
+								again in a moment.
 							</span>
 						</div>
 					) : (
@@ -651,6 +793,18 @@ function TesterRoute() {
 					</span>
 				</Link>
 			</nav>
+
+			{!verdictInView && (
+				<VerdictBar
+					decision={decision}
+					risk={view.risk}
+					before={before}
+					after={fresh ? calibrated : undefined}
+					showDelta={showDelta}
+					pending={!fresh}
+					onOpen={openVerdict}
+				/>
+			)}
 		</div>
 	);
 }
