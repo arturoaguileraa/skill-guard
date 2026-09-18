@@ -51,6 +51,8 @@ def ingest_github(engine: Engine, query: str = "filename:SKILL.md",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     enqueued = 0
+    seen = 0  # search hits consumed, so max_results is a real cap
+    per_page = min(per_page, max_results)
     seen_pages = (max_results + per_page - 1) // per_page
     with httpx.Client(headers=headers, timeout=30) as client:
         for page in range(1, seen_pages + 1):
@@ -70,7 +72,8 @@ def ingest_github(engine: Engine, query: str = "filename:SKILL.md",
             items = resp.json().get("items", [])
             if not items:
                 break
-            for it in items:
+            for it in items[: max_results - seen]:
+                seen += 1
                 raw = _raw_url(it)
                 if not raw:
                     continue
@@ -84,6 +87,8 @@ def ingest_github(engine: Engine, query: str = "filename:SKILL.md",
                     identity=it.get("repository", {}).get("full_name"),
                     kind="skill")
                 enqueued += int(new)
+            if seen >= max_results:
+                break
             time.sleep(6)  # stay under the code-search rate limit
     return enqueued
 

@@ -13,18 +13,18 @@
   "dependencies": {
     "@hono/node-server": "^2.1.1",
     "@jev-analysis/api": "workspace:*",
-    "@orpc/openapi": "catalog:",
-    "@orpc/server": "catalog:",
-    "@orpc/zod": "catalog:",
+    "@orpc/openapi": "^1.15.0",
+    "@orpc/server": "^1.15.0",
+    "@orpc/zod": "^1.15.0",
     "hono": "^4.13.7",
-    "varlock": "catalog:",
-    "zod": "catalog:"
+    "varlock": "1.18.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@jev-analysis/config": "workspace:*",
-    "@types/node": "catalog:",
+    "@types/node": "^26.4.1",
     "tsdown": "^0.23.0",
     "tsx": "^4.23.13",
-    "typescript": "catalog:"
+    "typescript": "^6.0.3"
   }
 }

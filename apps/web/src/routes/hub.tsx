@@ -1,7 +1,7 @@
 import type { CatalogItem } from "@jev-analysis/api/jev";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Reveal } from "@/components/motion";
 import { orpc } from "@/utils/orpc";
@@ -10,7 +10,9 @@ export const Route = createFileRoute("/hub")({
 	component: HubRoute,
 });
 
-type Filter = "all" | "malicious" | "benign";
+type Filter = "all" | "block" | "escalate" | "allow";
+
+const PAGE_SIZE = 50;
 
 const DECISION_TINT: Record<string, string> = {
 	block: "text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/10",
@@ -69,11 +71,19 @@ function Row({ item }: { item: CatalogItem }) {
 					</span>
 				</div>
 
-				<span
-					className={`justify-self-end font-mono text-[11px] ${item.label === "malicious" ? "text-red-500" : "text-emerald-500"}`}
-				>
-					{item.label === "malicious" ? "malware" : "clean"}
-				</span>
+				{item.synthetic ? (
+					<span
+						className={`justify-self-end font-mono text-[11px] ${item.label === "malicious" ? "text-red-500" : "text-emerald-500"}`}
+					>
+						{item.label === "malicious" ? "malware" : "clean"}
+					</span>
+				) : (
+					<span
+						className={`justify-self-end font-mono text-[11px] sm:hidden ${DECISION_TINT[item.decision]?.split(" ")[0]}`}
+					>
+						{item.decision}
+					</span>
+				)}
 			</button>
 
 			{open && (
@@ -98,8 +108,26 @@ function Row({ item }: { item: CatalogItem }) {
 					</div>
 					<div className="self-start text-muted-foreground text-xs leading-relaxed">
 						Verdict <span className="font-mono">{item.decision}</span> at{" "}
-						{(item.risk * 100).toFixed(1)}% risk ·{" "}
-						{item.correct ? "matches" : "differs from"} its ground-truth label.
+						{(item.risk * 100).toFixed(1)}% risk
+						{item.synthetic ? (
+							<>
+								{" "}
+								· {item.correct ? "matches" : "differs from"} its ground-truth
+								label.
+							</>
+						) : (
+							". Scored automatically; there is no ground-truth label, so read it as triage, not proof."
+						)}
+						{/^https?:\/\//.test(item.note) && (
+							<a
+								href={item.note}
+								target="_blank"
+								rel="noreferrer noopener"
+								className="mt-2 block truncate font-mono text-[11px] underline underline-offset-2 hover:text-foreground"
+							>
+								view source ↗
+							</a>
+						)}
 					</div>
 				</div>
 			)}
@@ -107,23 +135,63 @@ function Row({ item }: { item: CatalogItem }) {
 	);
 }
 
+function useDebounced<T>(value: T, ms: number) {
+	const [v, setV] = useState(value);
+	useEffect(() => {
+		const t = setTimeout(() => setV(value), ms);
+		return () => clearTimeout(t);
+	}, [value, ms]);
+	return v;
+}
+
 function HubRoute() {
-	const { data, isLoading, isError } = useQuery(orpc.catalog.queryOptions());
 	const [q, setQ] = useState("");
 	const [filter, setFilter] = useState<Filter>("all");
+	const search = useDebounced(q.trim(), 250);
 
-	const items = useMemo(() => {
-		const all = data?.items ?? [];
-		const needle = q.trim().toLowerCase();
-		return all.filter((it) => {
-			if (filter !== "all" && it.label !== filter) return false;
-			if (!needle) return true;
-			return (
-				it.name.toLowerCase().includes(needle) ||
-				it.note.toLowerCase().includes(needle)
-			);
-		});
-	}, [data, q, filter]);
+	const {
+		data,
+		isLoading,
+		isError,
+		isFetching,
+		isFetchingNextPage,
+		hasNextPage,
+		fetchNextPage,
+	} = useInfiniteQuery({
+		...orpc.catalog.infiniteOptions({
+			input: (cursor: string | undefined) => ({
+				q: search || undefined,
+				decision: filter === "all" ? undefined : filter,
+				cursor,
+				limit: PAGE_SIZE,
+			}),
+			initialPageParam: undefined,
+			getNextPageParam: (last) => last.next_cursor ?? undefined,
+		}),
+		// Real→real: keep the last reading on screen while a new query loads.
+		placeholderData: keepPreviousData,
+	});
+
+	const first = data?.pages[0];
+	const items = data?.pages.flatMap((p) => p.items) ?? [];
+	const isDb = first?.source === "db";
+
+	// Auto-load the next page when the sentinel scrolls into view.
+	const sentinel = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const el = sentinel.current;
+		if (!el || !hasNextPage) return;
+		const io = new IntersectionObserver(
+			([e]) => {
+				if (e?.isIntersecting && !isFetchingNextPage) fetchNextPage();
+			},
+			{ rootMargin: "400px" },
+		);
+		io.observe(el);
+		return () => io.disconnect();
+	}, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+	const FILTERS: Filter[] = ["all", "block", "escalate", "allow"];
 
 	return (
 		<div className="mx-auto w-full max-w-6xl px-5 pb-24">
@@ -141,26 +209,37 @@ function HubRoute() {
 					</p>
 				</Reveal>
 				<Reveal delay={0.12}>
-					<p className="mt-4 max-w-xl rounded-[--radius] border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-amber-700 text-xs leading-relaxed dark:text-amber-300/90">
-						Demo corpus. These are synthetic, grounded-in-real-technique test
-						artifacts — not a verdict on any real published skill. It shows how
-						the triage behaves, not an authoritative registry.
-					</p>
+					{first && !isDb ? (
+						<p className="mt-4 max-w-xl rounded-[--radius] border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-amber-700 text-xs leading-relaxed dark:text-amber-300/90">
+							Demo corpus. These are synthetic, grounded-in-real-technique test
+							artifacts — not a verdict on any real published skill. It shows
+							how the triage behaves, not an authoritative registry.
+						</p>
+					) : (
+						<p className="mt-4 max-w-xl rounded-[--radius] border border-border px-3 py-2 text-muted-foreground text-xs leading-relaxed">
+							Public skills scored automatically as they are discovered. A score
+							is triage, not proof of malice: “escalate” means worth a human
+							look.
+						</p>
+					)}
 				</Reveal>
 			</header>
 
 			{isError ? (
 				<p className="py-16 text-center text-muted-foreground text-sm">
-					Couldn't load the catalog. Is the Jev service on :8000?
+					Couldn't load the catalog. Try again in a moment.
 				</p>
 			) : (
 				<>
 					<div className="grid grid-cols-2 gap-px overflow-hidden border-border border-x border-b bg-border sm:grid-cols-4">
-						<Stat n={data?.count ?? "—"} label="artifacts" />
-						<Stat n={data?.malicious ?? "—"} label="malicious" />
-						<Stat n={data?.benign ?? "—"} label="benign" />
+						<Stat n={first?.count ?? "—"} label="artifacts" />
+						<Stat n={first?.malicious ?? "—"} label="block" />
 						<Stat
-							n={data ? `${(data.thresholds.block * 100).toFixed(0)}%` : "—"}
+							n={isDb ? (first?.escalate ?? "—") : (first?.benign ?? "—")}
+							label={isDb ? "escalate" : "benign"}
+						/>
+						<Stat
+							n={first ? `${(first.thresholds.block * 100).toFixed(0)}%` : "—"}
 							label="block threshold"
 						/>
 					</div>
@@ -173,7 +252,7 @@ function HubRoute() {
 							className="flex-1 rounded-[--radius] border border-border bg-background px-3 py-1.5 font-mono text-sm outline-none focus:border-foreground/40"
 						/>
 						<div className="flex gap-2">
-							{(["all", "malicious", "benign"] as Filter[]).map((f) => (
+							{FILTERS.map((f) => (
 								<button
 									key={f}
 									type="button"
@@ -190,19 +269,46 @@ function HubRoute() {
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 gap-px overflow-hidden border-border border-x border-b bg-border">
+					<div
+						className={`grid grid-cols-1 gap-px overflow-hidden border-border border-x border-b bg-border transition-opacity ${isFetching && !isFetchingNextPage ? "opacity-70" : ""}`}
+					>
 						{isLoading ? (
 							<div className="bg-background px-4 py-16 text-center text-muted-foreground text-sm">
 								Loading catalog…
 							</div>
 						) : items.length === 0 ? (
 							<div className="bg-background px-4 py-16 text-center text-muted-foreground text-sm">
-								Nothing matches “{q}”.
+								{search
+									? `Nothing matches “${search}”.`
+									: "No artifacts scored yet."}
 							</div>
 						) : (
 							items.map((it) => <Row key={it.slug} item={it} />)
 						)}
 					</div>
+
+					{items.length > 0 && (
+						<div
+							ref={sentinel}
+							className="flex items-center justify-between px-1 pt-4 font-mono text-[11px] text-muted-foreground"
+						>
+							<span>
+								{items.length} of {first?.total ?? items.length}
+							</span>
+							{hasNextPage ? (
+								<button
+									type="button"
+									onClick={() => fetchNextPage()}
+									disabled={isFetchingNextPage}
+									className="rounded-[--radius] border border-border px-3 py-1.5 transition-colors hover:text-foreground"
+								>
+									{isFetchingNextPage ? "Loading…" : "Load more"}
+								</button>
+							) : (
+								<span>end of results</span>
+							)}
+						</div>
+					)}
 				</>
 			)}
 		</div>

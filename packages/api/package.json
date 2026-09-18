@@ -10,6 +10,7 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
