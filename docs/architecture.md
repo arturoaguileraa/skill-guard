@@ -2,7 +2,7 @@
 
 ## Overview
 
-skillguard is a three-app monorepo. Each app has one job and a clean boundary to the next.
+skillguard is a monorepo of three request-time apps (`web`, `server`, `jev`) plus a batch `worker`, sharing one Postgres database. Each app has one job and a clean boundary to the next.
 
 ```
 ┌────────────┐   oRPC /rpc/*   ┌────────────┐   HTTP /analyze  ┌────────────┐   HTTPS   ┌─────────┐
@@ -14,7 +14,7 @@ skillguard is a three-app monorepo. Each app has one job and a clean boundary to
                                                                 + Jev API key
 ```
 
-The TS side (`web`, `server`, `packages/api`) **never talks to Jev directly**. Only `apps/jev` holds the key and knows the question bank exists. Swapping the model vendor is a one-app change. See [ADR-0002](adr/0002-microservice-monorepo-boundary.md).
+The TS side (`web`, `server`, `packages/api`) **never talks to Jev's API directly**. Only `apps/jev` holds the key and knows the question bank exists. Swapping the model vendor is a one-app change. See [ADR-0002](adr/0002-microservice-monorepo-boundary.md).
 
 ## Apps
 
@@ -29,23 +29,23 @@ The core. Pipeline:
 
 Exposed over HTTP by `service.py`:
 - `POST /analyze` — score one artifact. Warm-connection keepalive + content-hash cache (see [ADR-0005](adr/0005-instant-provisional-and-latency.md)).
-- `GET /catalog` — the static analyzed-skills catalog for the hub (see [ADR-0006](adr/0006-static-synthetic-hub-catalog.md)).
+- `GET /catalog` — the static demo catalog (see [ADR-0006](adr/0006-static-synthetic-hub-catalog.md)); now only the no-database fallback.
 - `GET /health` — reports whether it's running against real Jev or the heuristic fallback.
 
 ### apps/server — the BFF (TypeScript)
 
-A thin Hono app that mounts the oRPC router at `/rpc` and forwards to the Jev service. Holds no business logic beyond the boundary. `JEV_SERVICE_URL` (default `http://localhost:8000`).
+A thin Hono app that mounts the oRPC router at `/rpc`. `analyze` forwards to the Jev service (`JEV_SERVICE_URL`, default `http://localhost:8000`); `catalog` reads the results database directly when `DATABASE_URL` is set (falls back to jev's static catalog otherwise). No business logic beyond those two boundaries. `CORS_ORIGIN` is read from `process.env` — no `varlock` at runtime.
 
 ### packages/api — the contract (TypeScript)
 
-The oRPC router (`analyze`, `catalog`) and Zod schemas. **`src/jev.ts` is the only place the TS side knows Jev exists** — it fetches the Jev service and validates the response. End-to-end types flow from here to the web client.
+The oRPC router (`analyze`, `catalog`) and Zod schemas. **`src/jev.ts` is the only place the TS side knows Jev exists**; **`src/catalog-db.ts` is the only place it reads the database** (keyset pagination, search, decision filter). End-to-end types flow from here to the web client.
 
 ### apps/web — the UI (TypeScript)
 
 TanStack Router file-based routes:
 - `/` **Tester** — live analyzer. Debounced (180ms) oRPC `analyze`; instant client-side heuristic preview replaced by the calibrated reading (the "real→real" invariant, [ADR-0005](adr/0005-instant-provisional-and-latency.md)). A **sensitivity panel** recomputes the verdict client-side from the returned family risks under user-adjusted weights + block threshold (same cross-family formula as `score.py`, `apps/web/src/lib/recompute.ts`) — no black box, no extra Jev call.
 - `/why` — value proposition.
-- `/hub` — the analyzed-skills catalog via oRPC `catalog`.
+- `/hub` — the analyzed-skills catalog via oRPC `catalog`: infinite scroll, debounced search, decision filter; keeps the previous list while a new query loads. Real artifacts show the verdict without a ground-truth claim.
 
 Design language in [design-system.md](design-system.md).
 
@@ -53,9 +53,34 @@ Design language in [design-system.md](design-system.md).
 
 **Analyze (live tester):** keystroke → 180ms debounce → oRPC `analyze` → server → jev `/analyze` → (cache hit ~2ms, or Jev ~450ms warm) → typed result → dial updates. While in flight, the last real reading stays on screen.
 
-**Catalog (hub):** page load → oRPC `catalog` → server → jev `/catalog` → static `eval/catalog.json` (generated offline from cached readings) → searchable table.
+**Catalog (hub):** page load / scroll / search → oRPC `catalog({ q, decision, cursor, limit })` → server → Neon (`results ⨝ artifacts`, keyset page) → rows + `next_cursor`. Without `DATABASE_URL`: server → jev `/catalog` → static `eval/catalog.json`.
 
-## Ports
+**Ingest (worker):** `worker ingest-*` → `artifacts` + `jobs` → `worker run` claims jobs (`SKIP LOCKED`), scores with the same engine and Jev → `results` → visible in the hub on the next request.
+
+## Deployment (production)
+
+One Vercel project (`vercel.json`), three services deployed together; Neon Postgres; the worker is not deployed. See [ADR-0009](adr/0009-vercel-services-and-db-backed-hub.md).
+
+```
+Browser ──▶ jev-analysis.vercel.app
+              ├─ /rpc/*  ──▶ server (Node fn) ──▶ Neon Postgres        (hub: reads results)
+              │                  └─ binding ──▶ jev (Python fn, PRIVATE) ──▶ Jev API   (analyze)
+              └─ /*      ──▶ web (static, CDN)
+
+Maintainer's machine: worker ──▶ Neon (writes)  and  ──▶ Jev API (scores directly)
+```
+
+| Piece | Runs on | Notes |
+|---|---|---|
+| web | Vercel CDN | Static Vite build, SPA fallback, same-origin `/rpc` |
+| server | Vercel Node function | Self-contained bundle; `entry.mjs` → `dist/index.mjs` |
+| jev | Vercel Python function | No public route; reached only via the `JEV_SERVICE_URL` binding; holds `TYPESAFE_API_KEY` |
+| database | Neon (Marketplace) | pooled `DATABASE_URL`; tables `artifacts`, `jobs`, `results` |
+| worker | local for now | writes Neon with `apps/worker/.env`; a container host later |
+
+Env vars on the project: `TYPESAFE_API_KEY` (sensitive), `CORS_ORIGIN`, the Neon set (`DATABASE_URL`, …). `JEV_SERVICE_URL` comes from the binding. A push to `main` builds production; other branches get protected previews.
+
+## Ports (local dev)
 
 | App | Port |
 |---|---|

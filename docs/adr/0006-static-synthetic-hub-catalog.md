@@ -1,6 +1,6 @@
 # 0006 — The hub is a static catalog of synthetic-but-grounded fixtures
 
-**Status:** Accepted
+**Status:** Accepted — superseded in production by [ADR-0009](0009-vercel-services-and-db-backed-hub.md); still the no-database fallback and the demo corpus
 
 ## Context
 

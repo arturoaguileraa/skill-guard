@@ -1,6 +1,6 @@
 # 0008 — Mass-analysis worker + database-backed catalog
 
-**Status:** Accepted (worker built; DB provisioning + hub wiring pending)
+**Status:** Accepted (worker built; DB + hub wiring done in [ADR-0009](0009-vercel-services-and-db-backed-hub.md); daemon hosting pending)
 
 ## Context
 
@@ -26,4 +26,4 @@ A new `apps/worker` (Python) that reuses the `skillguard` engine (installed as a
 ## Consequences
 
 - **Positive:** One engine, reused across live (`apps/jev`) and batch (`apps/worker`). Horizontally scalable, cheap (~$8 of Jev to score 100k artifacts). No extra queue infra. Storage swaps by changing a URL.
-- **Negative / follow-up:** The hub still reads static `catalog.json` — the clean next step is a paginated API on `apps/server` reading Neon directly. Ingestion throughput is capped by GitHub code-search rate limits; more sources needed for millions. A per-day spend guard is advisable. DB provisioning needs the Vercel CLI + the user's account (not yet done).
+- **Negative / follow-up:** ~~The hub still reads static `catalog.json`~~ — done, see ADR-0009. Real cost measured at ~$0.00027 per skill (~$27 per 100k), not ~$8. Ingestion throughput is capped by GitHub code-search rate limits; more sources needed for millions. A per-day spend guard is advisable.
