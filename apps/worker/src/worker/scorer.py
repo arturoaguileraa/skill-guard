@@ -11,11 +11,20 @@ from skillguard.extract import artifact_from_text
 from skillguard.score import Thresholds, score
 from skillguard.testing import FakeClient
 
+from worker.db import database_url
+
 
 class Scorer:
     def __init__(self, fake: bool | None = None):
         bank = load_bank()
-        use_fake = fake if fake is not None else not os.environ.get("TYPESAFE_API_KEY")
+        has_key = bool(os.environ.get("TYPESAFE_API_KEY"))
+        if fake is None and not has_key and not database_url().startswith("sqlite"):
+            # Never let heuristic scores land silently in a shared database.
+            raise RuntimeError(
+                "TYPESAFE_API_KEY is not set; refusing to score into a non-SQLite "
+                "database with the heuristic client. Set the key or pass --fake."
+            )
+        use_fake = fake if fake is not None else not has_key
         self.engine = Engine(bank, client=FakeClient()) if use_fake else Engine(bank)
         self.bank = bank
         self.th = Thresholds()

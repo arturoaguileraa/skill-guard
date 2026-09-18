@@ -6,6 +6,7 @@ export default defineConfig({
   outDir: "./dist",
   clean: true,
   deps: {
-    alwaysBundle: [/@jev-analysis\/.*/],
+    // Self-contained bundle: the Vercel function ships only dist/index.mjs.
+    alwaysBundle: [/.*/],
   },
 });

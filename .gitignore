@@ -64,3 +64,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 worker.db
+.env*
+!.env.schema
+!.env.example

@@ -9,7 +9,6 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import { createContext } from "./context";
-import { ENV } from "./env.server";
 
 const app = new Hono();
 
@@ -17,7 +16,9 @@ app.use(logger());
 app.use(
   "/*",
   cors({
-    origin: ENV.CORS_ORIGIN,
+    // Plain process.env: varlock shells out to its CLI at runtime, which a
+    // Vercel function does not ship. Schema/codegen still live in .env.schema.
+    origin: process.env.CORS_ORIGIN ?? "http://localhost:3001",
     allowMethods: ["GET", "POST", "OPTIONS"],
   }),
 );
@@ -73,12 +74,17 @@ app.get("/", (c) => {
 
 import { serve } from "@hono/node-server";
 
-serve(
-  {
-    fetch: app.fetch,
-    port: 3000,
-  },
-  (info) => {
-    console.log(`Server is running on http://localhost:${info.port}`);
-  },
-);
+// On Vercel the platform invokes the default export; locally we listen on :3000.
+if (!process.env.VERCEL) {
+  serve(
+    {
+      fetch: app.fetch,
+      port: 3000,
+    },
+    (info) => {
+      console.log(`Server is running on http://localhost:${info.port}`);
+    },
+  );
+}
+
+export default app;

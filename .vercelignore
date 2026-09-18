@@ -1,0 +1,8 @@
+# Local env files must never ship (they bake localhost URLs / hold secrets).
+# .env.schema and .env.example are NOT secrets and are needed by varlock codegen.
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local

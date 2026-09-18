@@ -94,5 +94,22 @@ def get_engine() -> Engine:
     return create_engine(url, pool_pre_ping=True, connect_args=connect_args)
 
 
+# Read-path indexes for the hub (Postgres only): the keyset order used by the
+# paginated catalog, and trigram indexes so ILIKE search stays fast at scale.
+_PG_INDEXES = (
+    "CREATE EXTENSION IF NOT EXISTS pg_trgm",
+    "CREATE INDEX IF NOT EXISTS results_risk_hash_idx "
+    "ON results (risk DESC, artifact_hash DESC)",
+    "CREATE INDEX IF NOT EXISTS artifacts_identity_trgm_idx "
+    "ON artifacts USING gin (identity gin_trgm_ops)",
+    "CREATE INDEX IF NOT EXISTS artifacts_source_url_trgm_idx "
+    "ON artifacts USING gin (source_url gin_trgm_ops)",
+)
+
+
 def init_db(engine: Engine) -> None:
     metadata.create_all(engine)
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            for stmt in _PG_INDEXES:
+                conn.exec_driver_sql(stmt)

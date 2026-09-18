@@ -1,0 +1,43 @@
+{
+  "services": {
+    "web": {
+      "root": "apps/web",
+      "rewrites": [
+        {
+          "source": "/(.*)",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    "server": {
+      "root": "apps/server",
+      "entrypoint": "dist/index.mjs",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "jev",
+          "format": "url",
+          "env": "JEV_SERVICE_URL"
+        }
+      ]
+    },
+    "jev": {
+      "root": "apps/jev",
+      "entrypoint": "main:app"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/rpc/(.*)",
+      "destination": {
+        "service": "server"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
+  ]
+}

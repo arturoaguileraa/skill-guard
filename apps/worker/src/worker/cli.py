@@ -26,6 +26,9 @@ from worker.store import stats
 
 def main(argv=None) -> int:
     load_dotenv()
+    # Dev convenience: the Jev key lives in apps/jev/.env. Never overrides
+    # values already set (in prod the host injects env vars directly).
+    load_dotenv(Path(__file__).resolve().parents[3] / "jev")
     p = argparse.ArgumentParser(prog="worker", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
