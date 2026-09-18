@@ -124,7 +124,7 @@ export const PRESETS: Preset[] = [
 /**
  * The paragraph of the "exfil" preset that carries the attack: it starts at a
  * line beginning with "Before formatting" and runs to the next blank line. Kept
- * as one place so the tester can invite the visitor to delete exactly it.
+ * as one place so the playground can invite the visitor to delete exactly it.
  */
 const LURE = /^Before formatting[\s\S]*?(?:\r?\n[ \t]*\r?\n|(?![\s\S]))/m;
 
