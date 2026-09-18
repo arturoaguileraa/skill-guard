@@ -99,7 +99,8 @@ def score(reading: Reading, bank: Bank, thresholds: Thresholds | None = None) ->
         if spec.family == "control" or spec.type == "choice":
             continue
         if qid in reading.values:
-            weighted = reading.values[qid] * reading.confidence.get(qid, 1.0)
+            weighted = (reading.values[qid] * reading.confidence.get(qid, 1.0)
+                        * spec.strength)
             by_family.setdefault(spec.family, []).append(weighted)
 
     family_risk = {fam: noisy_or(vals) for fam, vals in by_family.items()}

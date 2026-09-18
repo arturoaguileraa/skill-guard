@@ -15,6 +15,16 @@ def _clean(value: str, limit: int) -> str | None:
     return value[:limit] or None
 
 
+# Paths that hold a repo's own tests/fixtures, not skills a user would install
+# (e.g. a malware scanner's samples). Ingesting them would present test malware
+# as a real publisher's skill.
+_TEST_PATH = re.compile(r"(^|/)(tests?|__tests__|fixtures?|testdata|test_data)/", re.I)
+
+
+def is_test_path(path: str | None) -> bool:
+    return bool(path and _TEST_PATH.search(path))
+
+
 def parse_frontmatter(content: str) -> tuple[str | None, str | None]:
     """Return (name, description) from a leading `---` YAML block, if any."""
     m = _FRONTMATTER.match(content)

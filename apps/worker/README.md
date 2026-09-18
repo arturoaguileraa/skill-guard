@@ -37,6 +37,8 @@ uv run worker ingest-topics --max-repos 150   # crawl top repos per GitHub topic
 uv run worker ingest-repos anthropics/skills  # or specific repos
 uv run worker run --batch 48 --concurrency 16 --max-usd-day 5   # drain the queue once (capped)
 uv run worker rethreshold             # re-decide stored results under current thresholds (0 API calls)
+uv run worker requeue                # re-score block+escalate (after a question/bank change)
+uv run worker prune-tests --yes       # delete artifacts under tests/fixtures paths (dry run without --yes)
 uv run worker backfill-meta           # fill repo/path/name/description on old rows
 uv run worker run --forever           # daemon: keep scoring as jobs arrive
 uv run worker stats

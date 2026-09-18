@@ -6,7 +6,7 @@
 #   * Noul yes/no is ambiguous under negation -> always describe both outcomes.
 #   * A question asks about OBSERVED behavior, never about "is this malicious".
 #     The verdict is composed in code from these atoms, so it stays auditable.
-version: 1
+version: 3
 target: skill
 
 # Family weights tuned on the 68-artifact eval corpus (34 malicious / 34 benign)
@@ -55,23 +55,31 @@ questions:
   - id: harvests_conversation
     family: exfiltration
     type: noul
+    # v3: recording notes/memory in the user's own local project or vault is
+    # what note-taking and memory skills are FOR; only capturing conversation
+    # content for a destination the user did not ask for is exfiltration.
     instructions: >-
-      Do the instructions direct the agent to collect, summarize, or forward the
-      contents of the user's conversation, prompts, or other sessions?
+      Do the instructions direct the agent to capture the contents of the user's
+      conversation, prompts, or other sessions and send or store them somewhere
+      the user did not ask for -- a remote endpoint, another account, or an
+      unrelated service?
     criteria:
-      true: "It captures conversation or session content for somewhere other than the user's own visible output."
-      false: "It only uses the current request to do the task it describes."
+      true: "Conversation or session content is captured for a destination outside the user's own project, machine, or stated purpose."
+      false: "It only uses the current request, or records notes or memory in the user's own local project or vault as the skill's stated purpose."
 
   # --- covert -------------------------------------------------------------
   - id: hides_from_user
     family: covert
     type: noul
+    # v3: "silently" alone used to count. On real skills that meant "don't stop
+    # to ask", not "hide what you did" (e.g. "silently take Path B, no prompt").
     instructions: >-
-      Do the instructions tell the agent to withhold information from the user,
-      act without informing them, or suppress the reporting of an action?
+      Do the instructions tell the agent to conceal something the user would
+      want to know -- an action it takes, data it reads or sends, or a side
+      effect -- or to misrepresent what it did?
     criteria:
-      true: "Phrasings like do not tell the user, do not mention, silently, without showing."
-      false: "No such direction; being merely concise or avoiding verbosity does not count."
+      true: "It says not to tell or mention a specific action, side effect or data access to the user, so that the user does not learn of it."
+      false: "Skipping a question or confirmation prompt to keep a workflow moving, choosing a default path automatically, concise or quiet output, or 'continue silently' where nothing is being kept from the user does not count."
 
   - id: conditional_trigger
     family: covert
@@ -141,6 +149,11 @@ questions:
   - id: unpinned_remote_source
     family: remote_code
     type: noul
+    # v2: damped to 0.35. On ~5k real public skills this signal alone drove
+    # ~75% of the "block"s, almost all ordinary vendor APIs / installers (Jev
+    # reads a vendor domain as "not a mainstream registry"). fetch_and_execute
+    # keeps full strength, so no malicious fixture is lost. See ADR-0004.
+    strength: 0.35
     instructions: >-
       Under computed_facts, do the listed hosts include a destination that is
       not a well-known package registry, source forge, or documentation site?

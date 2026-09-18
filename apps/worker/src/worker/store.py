@@ -238,3 +238,34 @@ def rethreshold(engine: Engine) -> dict:
                 conn.execute(update(results).where(
                     results.c.artifact_hash == r.artifact_hash).values(decision=new.value))
     return {"rows": len(rows), "review_threshold": th.review, "changed": changed}
+
+
+def requeue(engine: Engine, decisions: list[str]) -> int:
+    """Send already-scored artifacts back through the queue (e.g. after the
+    question bank changed). Results are overwritten when the new score lands."""
+    with engine.begin() as conn:
+        hashes = [r[0] for r in conn.execute(
+            select(results.c.artifact_hash).where(results.c.decision.in_(decisions)))]
+        busy = {r[0] for r in conn.execute(
+            select(jobs.c.artifact_hash).where(jobs.c.status.in_(("pending", "running"))))}
+        todo = [h for h in hashes if h not in busy]
+        if todo:  # one batched INSERT: a round-trip per row is painfully slow on Neon
+            conn.execute(insert(jobs), [{"artifact_hash": h, "status": "pending"} for h in todo])
+    return len(todo)
+
+
+def prune_tests(engine: Engine, apply: bool = False) -> dict:
+    """Find (and with apply=True delete) artifacts that live under test/fixture
+    paths. Dry run by default."""
+    from worker.meta import is_test_path
+
+    with engine.begin() as conn:
+        rows = conn.execute(select(artifacts.c.hash, artifacts.c.repo, artifacts.c.path)).all()
+        hit = [r for r in rows if is_test_path(r.path)]
+        if apply and hit:
+            hs = [r.hash for r in hit]
+            for t, col in ((results, results.c.artifact_hash), (jobs, jobs.c.artifact_hash),
+                           (artifacts, artifacts.c.hash)):
+                conn.execute(t.delete().where(col.in_(hs)))
+    return {"matched": len(hit), "deleted": len(hit) if apply else 0,
+            "by_repo": {r: sum(1 for x in hit if x.repo == r) for r in {x.repo for x in hit}}}

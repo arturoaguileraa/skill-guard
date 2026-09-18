@@ -19,6 +19,10 @@ class QuestionSpec:
     type: str
     weight: float
     n_levels: int = 0
+    # Per-question damping inside its family (1.0 = full). Lets a signal that
+    # fires on benign work (e.g. "installs from a non-registry host") count for
+    # less than the family as a whole without weakening its strong siblings.
+    strength: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,7 @@ def load_bank(name: str = "skill_bank") -> Bank:
         instructions = " ".join(entry["instructions"].split())
         criteria = entry.get("criteria")
         weight = float(families.get(family, {}).get("weight", 0.0))
+        strength = float(entry.get("strength", 1.0))
 
         if qtype == "noul":
             # YAML turns bare `true:`/`false:` keys into booleans; NoulCriteria
@@ -63,6 +68,6 @@ def load_bank(name: str = "skill_bank") -> Bank:
         else:
             raise ValueError(f"{qid}: unknown question type {qtype!r}")
 
-        specs[qid] = QuestionSpec(qid, family, qtype, weight, levels)
+        specs[qid] = QuestionSpec(qid, family, qtype, weight, levels, strength)
 
     return Bank(raw["version"], raw["target"], families, specs, questions)
