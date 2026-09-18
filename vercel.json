@@ -11,7 +11,7 @@
     },
     "server": {
       "root": "apps/server",
-      "entrypoint": "dist/index.mjs",
+      "entrypoint": "entry.mjs",
       "bindings": [
         {
           "type": "service",
