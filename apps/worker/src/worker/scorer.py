@@ -48,6 +48,11 @@ class Scorer:
                 for f, r in sorted(v.family_risk.items(), key=lambda kv: kv[1], reverse=True)
                 if r > 0.05
             ],
+            "readings": {
+                q: {"v": round(float(v), 4),
+                    "c": round(float(reading.confidence.get(q, 1.0)), 4)}
+                for q, v in reading.values.items()
+            },
             "signals": [
                 {"id": q, "value": round(val, 4)} for q, val in v.top_signals[:5]
             ],

@@ -26,7 +26,7 @@ from worker.sources import (
     ingest_repos,
     ingest_topics,
 )
-from worker.store import backfill_meta, rethreshold, stats
+from worker.store import backfill_meta, prune_tests, requeue, rethreshold, stats
 
 
 def main(argv=None) -> int:
@@ -68,6 +68,11 @@ def main(argv=None) -> int:
 
     sub.add_parser("stats", help="queue + result counts")
     sub.add_parser("rethreshold", help="re-decide stored results under the current thresholds (0 API calls)")
+    pq = sub.add_parser("requeue", help="re-score already-scored artifacts (after a bank change)")
+    pq.add_argument("--decision", action="append", choices=["allow", "escalate", "block"],
+                    help="repeatable; default: escalate + block")
+    pp = sub.add_parser("prune-tests", help="find (and with --yes delete) artifacts under test/fixture paths")
+    pp.add_argument("--yes", action="store_true", help="actually delete; default is a dry run")
     sub.add_parser("backfill-meta", help="fill repo/path/name/description on old rows")
 
     pe = sub.add_parser("export-catalog", help="dump results to a hub catalog.json")
@@ -102,6 +107,11 @@ def main(argv=None) -> int:
                   max_usd_day=args.max_usd_day, quiet=args.quiet)
         print(f"done: scored={out['scored']} failed={out['failed']}"
               + (" (daily cap reached)" if out["capped"] else ""))
+    elif args.cmd == "requeue":
+        init_db(engine)
+        print(f"requeued {requeue(engine, args.decision or ['escalate', 'block'])} artifacts")
+    elif args.cmd == "prune-tests":
+        print(json.dumps(prune_tests(engine, apply=args.yes)))
     elif args.cmd == "rethreshold":
         init_db(engine)
         print(json.dumps(rethreshold(engine)))

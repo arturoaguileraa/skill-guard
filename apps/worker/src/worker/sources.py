@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
 from worker.db import artifacts
+from worker.meta import is_test_path
 from worker.store import enqueue
 
 API = "https://api.github.com"
@@ -78,6 +79,7 @@ def ingest_repo(engine: Engine, gh: GitHub, repo: str, max_skills: int = 200) ->
         if x.get("type") == "blob"
         and x["path"].rsplit("/", 1)[-1].lower() == "skill.md"
         and int(x.get("size") or 0) <= MAX_BYTES
+        and not is_test_path(x["path"])
     ][:max_skills]
     if not paths:
         return 0

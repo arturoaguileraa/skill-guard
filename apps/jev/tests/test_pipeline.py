@@ -66,3 +66,25 @@ def test_engine_reports_cost_and_tokens(engine, bank):
     r = engine.read(extract_skill(FIX / "benign" / "astro"))
     assert r.input_tokens > 0
     assert r.cost_usd >= 0.0
+
+
+def test_question_strength_damps_a_noisy_signal(bank):
+    # unpinned_remote_source is damped (v2): alone, it must not reach a block,
+    # while its sibling fetch_and_execute keeps full strength.
+    assert bank.specs["unpinned_remote_source"].strength < 1.0
+    assert bank.specs["fetch_and_execute"].strength == 1.0
+
+    from skillguard.engine import Reading
+    from skillguard.extract import artifact_from_text
+
+    art = artifact_from_text("---\nname: x\ndescription: y\n---\nbody")
+
+    def risk_of(values):
+        r = Reading(art, values, {q: 1.0 for q in values}, {}, 0, 0.0)
+        return score(r, bank)
+
+    only_unpinned = risk_of({"unpinned_remote_source": 1.0})
+    only_fetch = risk_of({"fetch_and_execute": 1.0})
+    assert only_unpinned.risk < only_fetch.risk
+    assert only_unpinned.decision is not Decision.BLOCK
+    assert only_fetch.decision is Decision.BLOCK

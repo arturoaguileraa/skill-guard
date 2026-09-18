@@ -84,6 +84,9 @@ results = Table(
     Column("integrity_warning", Text),
     Column("families", JSON),
     Column("signals", JSON),
+    # Every question's raw reading {id: {"v": value, "c": confidence}}, so weights
+    # and thresholds can be re-tuned offline with no Jev call.
+    Column("readings", JSON),
     Column("model", String(64)),
     Column("input_tokens", Integer),
     Column("cost_usd", Float),
@@ -119,12 +122,15 @@ def _add_missing_columns(engine: Engine) -> None:
     """create_all never alters existing tables; add columns introduced later."""
     from sqlalchemy import inspect
 
-    have = {c["name"] for c in inspect(engine).get_columns("artifacts")}
+    insp = inspect(engine)
     with engine.begin() as conn:
-        for col in artifacts.columns:
-            if col.name not in have:
-                ddl = f"ALTER TABLE artifacts ADD COLUMN {col.name} {col.type.compile(engine.dialect)}"
-                conn.exec_driver_sql(ddl)
+        for table in (artifacts, results):
+            have = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name not in have:
+                    conn.exec_driver_sql(
+                        f"ALTER TABLE {table.name} ADD COLUMN {col.name} "
+                        f"{col.type.compile(engine.dialect)}")
 
 
 def init_db(engine: Engine) -> None:

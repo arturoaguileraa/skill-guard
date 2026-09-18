@@ -11,6 +11,7 @@ from pathlib import Path
 import httpx
 from sqlalchemy.engine import Engine
 
+from worker.meta import is_test_path
 from worker.store import enqueue
 
 GITHUB_API = "https://api.github.com"
@@ -74,6 +75,8 @@ def ingest_github(engine: Engine, query: str = "filename:SKILL.md",
                 break
             for it in items[: max_results - seen]:
                 seen += 1
+                if is_test_path(it.get("path")):
+                    continue
                 raw = _raw_url(it)
                 if not raw:
                     continue
