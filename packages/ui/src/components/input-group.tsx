@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@jev-analysis/ui/components/button";
-import { Input } from "@jev-analysis/ui/components/input";
-import { Textarea } from "@jev-analysis/ui/components/textarea";
-import { cn } from "@jev-analysis/ui/lib/utils";
+import { Button } from "@skill-guard/ui/components/button";
+import { Input } from "@skill-guard/ui/components/input";
+import { Textarea } from "@skill-guard/ui/components/textarea";
+import { cn } from "@skill-guard/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 

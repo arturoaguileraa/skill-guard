@@ -1,4 +1,4 @@
-# @jev-analysis/worker
+# @skill-guard/worker
 
 Mass-analysis worker: ingest agent skills / MCP servers **at scale**, score each
 with Jev by reusing the `skillguard` engine, and **store the results** in a

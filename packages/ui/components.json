@@ -12,11 +12,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@jev-analysis/ui/components",
-    "utils": "@jev-analysis/ui/lib/utils",
-    "hooks": "@jev-analysis/ui/hooks",
-    "lib": "@jev-analysis/ui/lib",
-    "ui": "@jev-analysis/ui/components"
+    "components": "@skill-guard/ui/components",
+    "utils": "@skill-guard/ui/lib/utils",
+    "hooks": "@skill-guard/ui/hooks",
+    "lib": "@skill-guard/ui/lib",
+    "ui": "@skill-guard/ui/components"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

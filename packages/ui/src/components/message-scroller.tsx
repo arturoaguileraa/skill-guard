@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@jev-analysis/ui/components/button";
-import { cn } from "@jev-analysis/ui/lib/utils";
+import { Button } from "@skill-guard/ui/components/button";
+import { cn } from "@skill-guard/ui/lib/utils";
 import {
 	MessageScroller as MessageScrollerPrimitive,
 	useMessageScroller,

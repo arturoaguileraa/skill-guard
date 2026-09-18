@@ -1,5 +1,5 @@
-import { Toaster } from "@jev-analysis/ui/components/sonner";
-import { TooltipProvider } from "@jev-analysis/ui/components/tooltip";
+import { Toaster } from "@skill-guard/ui/components/sonner";
+import { TooltipProvider } from "@skill-guard/ui/components/tooltip";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {

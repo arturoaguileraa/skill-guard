@@ -1,5 +1,5 @@
 {
-  "name": "@jev-analysis/api",
+  "name": "@skill-guard/api",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -18,7 +18,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@jev-analysis/config": "workspace:*",
+    "@skill-guard/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

@@ -1,4 +1,4 @@
-import type { Context as ApiContext } from "@jev-analysis/api/context";
+import type { Context as ApiContext } from "@skill-guard/api/context";
 import type { Context as HonoContext } from "hono";
 
 export type CreateContextOptions = {

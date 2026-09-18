@@ -1,4 +1,4 @@
-import type { CatalogItem } from "@jev-analysis/api/jev";
+import type { CatalogItem } from "@skill-guard/api/jev";
 import {
 	keepPreviousData,
 	useInfiniteQuery,
