@@ -62,24 +62,29 @@ const riskColor = (v: number) =>
 /* ── animated number ────────────────────────────────────────────────────── */
 function useCountUp(target: number, ms = 650) {
 	const [value, setValue] = useState(target);
-	const from = useRef(target);
+	// Where the number is RIGHT NOW. A new target interrupts from here, never from
+	// the last finished value, so a change mid-animation continues smoothly
+	// instead of snapping backwards.
+	const current = useRef(target);
 	const raf = useRef(0);
 	useEffect(() => {
 		const reduce = window.matchMedia(
 			"(prefers-reduced-motion: reduce)",
 		).matches;
 		if (reduce) {
+			current.current = target;
 			setValue(target);
 			return;
 		}
 		const start = performance.now();
-		const a = from.current;
+		const a = current.current;
 		const tick = (now: number) => {
 			const t = Math.min(1, (now - start) / ms);
 			const eased = 1 - (1 - t) ** 3; // cubic ease-out
-			setValue(a + (target - a) * eased);
+			const v = a + (target - a) * eased;
+			current.current = v;
+			setValue(v);
 			if (t < 1) raf.current = requestAnimationFrame(tick);
-			else from.current = target;
 		};
 		raf.current = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(raf.current);
@@ -194,7 +199,7 @@ const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
 
 function Verdict({ d, risk }: { d: Decision; risk: number }) {
 	return (
-		<span className={`font-mono ${DECISION[d].tint}`}>
+		<span className={`font-mono tabular-nums ${DECISION[d].tint}`}>
 			{DECISION[d].label} {pct(risk)}
 		</span>
 	);
@@ -283,7 +288,9 @@ function useInView(ref: React.RefObject<Element | null>) {
  * Stacked layouts put the verdict a screen or two below the editor, so on small
  * screens a fixed bar keeps it in sight while you edit — deleting the attack
  * paragraph shows its effect right there. It uses the same `view` as the dial
- * (real reading once available), so it never flashes a different number.
+ * (real reading once available) and the same count-up, so the two move in step
+ * and it never flashes a different number. It slides away while the verdict
+ * panel itself is on screen.
  */
 function VerdictBar({
 	decision,
@@ -292,6 +299,7 @@ function VerdictBar({
 	after,
 	showDelta,
 	pending,
+	hidden,
 	onOpen,
 }: {
 	decision: Decision;
@@ -300,33 +308,69 @@ function VerdictBar({
 	after?: AnalyzeResult;
 	showDelta: boolean;
 	pending: boolean;
+	hidden: boolean;
 	onOpen: () => void;
 }) {
 	const meta = DECISION[decision];
+	// One animated number. In the before -> after view it starts at the "before"
+	// value and counts to "after"; the top line grows with the same number.
+	const shownRisk = useCountUp(
+		showDelta && after ? after.risk : showDelta && before ? before.risk : risk,
+	);
+	const delta = showDelta && before && after;
+	const beforeMeta = before ? DECISION[before.decision] : null;
 	return (
 		<button
 			type="button"
 			onClick={onOpen}
+			aria-hidden={hidden}
+			tabIndex={hidden ? -1 : undefined}
 			aria-label={`Verdict ${meta.label}, ${pct(risk)} malware risk. Show details`}
-			className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-border border-t bg-background/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-left backdrop-blur-md lg:hidden"
+			className={`fixed inset-x-0 bottom-0 z-40 block border-border border-t bg-background/95 px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] text-left backdrop-blur-md transition-transform duration-300 ease-out lg:hidden ${
+				hidden ? "pointer-events-none translate-y-full" : "translate-y-0"
+			}`}
 		>
-			<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-				<span className={`size-2 shrink-0 rounded-full ${meta.dot}`} />
-				{showDelta && pending ? (
-					<span className="text-muted-foreground">Re-scoring without it…</span>
-				) : showDelta && before && after ? (
-					<>
-						<Verdict d={before.decision} risk={before.risk} />
-						<span className="text-muted-foreground">→</span>
-						<Verdict d={after.decision} risk={after.risk} />
-					</>
-				) : (
-					<Verdict d={decision} risk={risk} />
-				)}
-			</span>
-			<span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-				details ↓
-			</span>
+			{/* live risk line: grows with the number it sits above */}
+			<span
+				aria-hidden
+				className={`absolute top-[-1px] left-0 h-0.5 transition-colors duration-300 ${meta.dot}`}
+				style={{ width: `${Math.max(0, Math.min(1, shownRisk)) * 100}%` }}
+			/>
+			<div className="flex items-end justify-between gap-4">
+				<div className="flex min-w-0 flex-col gap-1.5">
+					<span className="label-mono">
+						{showDelta && pending
+							? "Re-scoring without it…"
+							: showDelta
+								? "Attack paragraph removed"
+								: "Malware risk"}
+					</span>
+					{showDelta && pending ? (
+						<span className="flex items-center gap-2 font-display text-2xl text-muted-foreground tabular-nums leading-none">
+							{before ? pct(before.risk) : "—"}
+							<span className="size-1.5 animate-pulse rounded-full bg-muted-foreground" />
+						</span>
+					) : (
+						<span className="flex items-baseline gap-2 font-display text-2xl tabular-nums leading-none">
+							{delta && before && beforeMeta ? (
+								<>
+									<span className={`text-lg opacity-70 ${beforeMeta.tint}`}>
+										{pct(before.risk)}
+									</span>
+									<span className="text-base text-muted-foreground">→</span>
+								</>
+							) : null}
+							<span className={meta.tint}>{pct(shownRisk)}</span>
+							<span className={`font-mono text-xs ${meta.tint}`}>
+								{meta.label}
+							</span>
+						</span>
+					)}
+				</div>
+				<span className="shrink-0 pb-0.5 font-mono text-[11px] text-muted-foreground">
+					details ↓
+				</span>
+			</div>
 		</button>
 	);
 }
@@ -794,17 +838,16 @@ function TesterRoute() {
 				</Link>
 			</nav>
 
-			{!verdictInView && (
-				<VerdictBar
-					decision={decision}
-					risk={view.risk}
-					before={before}
-					after={fresh ? calibrated : undefined}
-					showDelta={showDelta}
-					pending={!fresh}
-					onOpen={openVerdict}
-				/>
-			)}
+			<VerdictBar
+				decision={decision}
+				risk={view.risk}
+				before={before}
+				after={fresh ? calibrated : undefined}
+				showDelta={showDelta}
+				pending={!fresh}
+				hidden={verdictInView}
+				onOpen={openVerdict}
+			/>
 		</div>
 	);
 }
