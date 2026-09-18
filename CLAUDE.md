@@ -66,4 +66,4 @@ cd apps/jev && uv run python -m pytest -q         # engine tests (NOT `pytest`, 
 - `docs/design-system.md` — the UI language
 - `docs/evaluation.md` — corpus, metrics, how to re-run/tune (full report in `apps/jev/eval/REPORT.md`)
 - `docs/adr/` — the decisions and their trade-offs
-- `docs/roadmap.md` — proposed next steps (multi-file skills, linked remote content); not decisions yet
+- `docs/roadmap.md` — proposed next steps (multi-file skills, linked remote content, a "How" section); not decisions yet

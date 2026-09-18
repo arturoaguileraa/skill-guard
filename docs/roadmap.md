@@ -54,3 +54,16 @@ Tier 1–2 need no new infrastructure. Tier 3 needs the background queue and dep
 1. Multi-file artifacts (closes a measured miss; prerequisite for 2.3).
 2. URL extraction and the suspicious floor for unknown hosts (2.1, 2.2).
 3. Background fetch-and-score with hash pinning and expiry (2.3).
+
+## 3. A "How" section in the web (after 1 and 2 ship)
+
+**Planned, not started, documentation only for now.** Once multi-file and linked-content analysis exist, add a section called **How** that explains how our skill analyzer works. It waits for those features so it describes the real pipeline once, instead of being rewritten.
+
+Intended contents:
+
+- The pipeline: deterministic extraction → typed questions to Jev → families and weights → decision.
+- Risk vs. deception, and the thresholds (block 0.80, review 0.55, deception 0.40), why a 99% skill can still be "suspicious".
+- What is analyzed: the whole skill folder, and what happens with linked remote content (trusted hosts, background check, verdict that can be updated).
+- Limits, stated plainly: triage not proof, remote content can change, what the analyzer cannot see.
+
+Relation to what exists: `/why` explains why Jev instead of an LLM; the hub already has a short "How a verdict is decided" block. **How** would be the full version, and that block would link to it.
