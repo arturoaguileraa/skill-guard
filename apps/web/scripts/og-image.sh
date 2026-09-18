@@ -9,7 +9,7 @@
 # ratio the platforms crop to), PNG, kept small: WhatsApp drops large previews.
 set -euo pipefail
 
-URL="${1:-https://jev-analysis.vercel.app/}"
+URL="${1:-https://skill-guard-app.vercel.app/}"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 OUT="$(cd "$(dirname "$0")/.." && pwd)/public/og.png"
 TMP="$(mktemp -d)"

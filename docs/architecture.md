@@ -62,7 +62,7 @@ Design language in [design-system.md](design-system.md).
 One Vercel project (`vercel.json`), three services deployed together; Neon Postgres; the worker is not deployed. See [ADR-0009](adr/0009-vercel-services-and-db-backed-hub.md).
 
 ```
-Browser ──▶ jev-analysis.vercel.app
+Browser ──▶ skill-guard-app.vercel.app
               ├─ /rpc/*  ──▶ server (Node fn) ──▶ Neon Postgres        (hub: reads results)
               │                  └─ binding ──▶ jev (Python fn, PRIVATE) ──▶ Jev API   (analyze)
               └─ /*      ──▶ web (static, CDN)
