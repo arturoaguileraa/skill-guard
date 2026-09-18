@@ -1,10 +1,13 @@
 import type { RouterClient } from "@orpc/server";
+import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { publicProcedure } from "../index";
-import { catalogFromDb, hasDatabase } from "../catalog-db";
+import { artifactFromDb, catalogFromDb, hasDatabase } from "../catalog-db";
 import {
 	analyzeResultSchema,
+	artifactInputSchema,
+	artifactSchema,
 	callJev,
 	catalogInputSchema,
 	catalogSchema,
@@ -37,6 +40,17 @@ export const appRouter = {
 		.handler(({ input }) =>
 			hasDatabase() ? catalogFromDb(input) : fetchCatalog(input),
 		),
+
+	/** The stored text of one analyzed skill, so the hub can show what was scored. */
+	artifact: publicProcedure
+		.input(artifactInputSchema)
+		.output(artifactSchema)
+		.handler(async ({ input }) => {
+			const found = hasDatabase() ? await artifactFromDb(input.slug) : null;
+			if (!found)
+				throw new ORPCError("NOT_FOUND", { message: "artifact not found" });
+			return found;
+		}),
 };
 
 export type AppRouter = typeof appRouter;

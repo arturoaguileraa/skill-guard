@@ -38,14 +38,14 @@ A thin Hono app that mounts the oRPC router at `/rpc`. `analyze` forwards to the
 
 ### packages/api — the contract (TypeScript)
 
-The oRPC router (`analyze`, `catalog`) and Zod schemas. **`src/jev.ts` is the only place the TS side knows Jev exists**; **`src/catalog-db.ts` is the only place it reads the database** (keyset pagination, search, decision filter). End-to-end types flow from here to the web client.
+The oRPC router (`analyze`, `catalog`, `artifact`) and Zod schemas. **`src/jev.ts` is the only place the TS side knows Jev exists**; **`src/catalog-db.ts` is the only place it reads the database** (keyset pagination, search, decision filter). End-to-end types flow from here to the web client.
 
 ### apps/web — the UI (TypeScript)
 
 TanStack Router file-based routes:
 - `/` **Tester** — live analyzer. Debounced (180ms) oRPC `analyze`; instant client-side heuristic preview replaced by the calibrated reading (the "real→real" invariant, [ADR-0005](adr/0005-instant-provisional-and-latency.md)). A **sensitivity panel** recomputes the verdict client-side from the returned family risks under user-adjusted weights + block threshold (same cross-family formula as `score.py`, `apps/web/src/lib/recompute.ts`) — no black box, no extra Jev call.
 - `/why` — value proposition.
-- `/hub` — the analyzed-skills catalog via oRPC `catalog`: infinite scroll, debounced search, decision filter; keeps the previous list while a new query loads. Real artifacts show the verdict without a ground-truth claim.
+- `/hub` — the analyzed-skills catalog via oRPC `catalog`: infinite scroll, debounced search, decision filter; keeps the previous list while a new query loads. Real artifacts show the verdict without a ground-truth claim, their repo/description, a commit-pinned GitHub link, and the stored `SKILL.md` text on demand (`artifact`, rendered as plain text).
 
 Design language in [design-system.md](design-system.md).
 

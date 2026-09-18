@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine
 
 from worker.db import artifacts, jobs, results
+from worker.meta import parse_frontmatter, parse_github_url
 
 
 def content_hash(content: str) -> str:
@@ -37,22 +38,28 @@ def enqueue(
     source_url: str | None = None,
     identity: str | None = None,
     kind: str = "skill",
+    repo: str | None = None,
+    path: str | None = None,
 ) -> tuple[str, bool]:
     """Upsert the artifact and create a pending job if none is outstanding.
     Returns (hash, was_new)."""
     h = content_hash(content)
+    name, description = parse_frontmatter(content)
+    if repo is None:
+        repo, path = parse_github_url(source_url)
+    meta = {"repo": repo, "path": path, "name": name, "description": description}
     is_pg = engine.dialect.name == "postgresql"
     with engine.begin() as conn:
         row = {
             "hash": h, "source": source, "source_url": source_url,
             "identity": identity, "kind": kind, "content": content,
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc), **meta,
         }
         if is_pg:
             stmt = pg_insert(artifacts).values(**row).on_conflict_do_update(
                 index_elements=["hash"],
                 set_={"source_url": source_url, "identity": identity,
-                       "updated_at": row["updated_at"]},
+                       "updated_at": row["updated_at"], **meta},
             )
             conn.execute(stmt)
         else:
@@ -62,7 +69,7 @@ def enqueue(
             if exists:
                 conn.execute(update(artifacts).where(artifacts.c.hash == h).values(
                     source_url=source_url, identity=identity,
-                    updated_at=row["updated_at"]))
+                    updated_at=row["updated_at"], **meta))
             else:
                 conn.execute(insert(artifacts).values(**row))
 
@@ -168,3 +175,23 @@ def stats(engine: Engine) -> dict:
         )
         n_art = conn.execute(select(func.count()).select_from(artifacts)).scalar()
     return {"artifacts": n_art, "jobs": by_status, "results": by_decision}
+
+
+def backfill_meta(engine: Engine) -> int:
+    """Fill repo/path/name/description for rows ingested before those columns
+    existed. Deterministic and offline: parses stored content and source_url."""
+    n = 0
+    with engine.begin() as conn:
+        rows = conn.execute(
+            select(artifacts.c.hash, artifacts.c.content, artifacts.c.source_url)
+            .where(artifacts.c.name.is_(None) & artifacts.c.repo.is_(None))
+        ).all()
+        for r in rows:
+            name, description = parse_frontmatter(r.content)
+            repo, path = parse_github_url(r.source_url)
+            if not (name or description or repo):
+                continue
+            conn.execute(update(artifacts).where(artifacts.c.hash == r.hash).values(
+                name=name, description=description, repo=repo, path=path))
+            n += 1
+    return n

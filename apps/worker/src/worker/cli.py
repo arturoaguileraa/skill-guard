@@ -21,7 +21,7 @@ from worker.db import get_engine, init_db
 from worker.export_catalog import export_catalog
 from worker.ingest import ingest_github, ingest_paths
 from worker.run import run
-from worker.store import stats
+from worker.store import backfill_meta, stats
 
 
 def main(argv=None) -> int:
@@ -48,6 +48,7 @@ def main(argv=None) -> int:
     pr.add_argument("--fake", action="store_true", help="force the heuristic client")
 
     sub.add_parser("stats", help="queue + result counts")
+    sub.add_parser("backfill-meta", help="fill repo/path/name/description on old rows")
 
     pe = sub.add_parser("export-catalog", help="dump results to a hub catalog.json")
     pe.add_argument("out")
@@ -70,6 +71,9 @@ def main(argv=None) -> int:
         out = run(engine, batch=args.batch, forever=args.forever,
                   fake=True if args.fake else None)
         print(f"done: scored={out['scored']} failed={out['failed']}")
+    elif args.cmd == "backfill-meta":
+        init_db(engine)
+        print(f"updated {backfill_meta(engine)} artifacts")
     elif args.cmd == "stats":
         print(json.dumps(stats(engine), indent=2, default=str))
     elif args.cmd == "export-catalog":

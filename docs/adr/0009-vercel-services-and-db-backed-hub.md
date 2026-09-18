@@ -18,6 +18,8 @@
 
 **The hub is paginated server-side.** `catalog` takes `{ q, decision, cursor, limit }` and returns the same shape plus optional `total`, `next_cursor`, `escalate`, `source`. Pagination is a **keyset cursor** over `(risk desc, artifact_hash desc)`; search is `ILIKE` backed by `pg_trgm` indexes created by `worker init-db`. With no `DATABASE_URL` it falls back to the static catalog (same input/output), so `bun run dev` needs no database.
 
+**You can see what was scored.** Each artifact keeps its full text (`artifacts.content`) plus `repo`, `path`, and the frontmatter `name`/`description` (parsed deterministically at ingest; `worker backfill-meta` fills older rows). Catalog items carry those fields, the GitHub link is a **commit-pinned permalink** (so it can't drift from what we scored), and a new `artifact({ slug })` procedure returns the stored text (capped at 200k chars) on demand. The hub renders it as **plain text only** — it is adversary-controlled. `skills.sh` is not linked: it answers 200 for any path, so a link can't be verified.
+
 **The worker stays out of Vercel** (persistent daemon). For now it runs on the maintainer's machine against the same Neon database; a container host is a later, mechanical step.
 
 ## Consequences

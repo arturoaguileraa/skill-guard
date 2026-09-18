@@ -14,7 +14,7 @@ Guidance for agents working in this repo. Keep it current when architecture or c
 | `apps/server` | Hono · oRPC · TS | Typed BFF the web calls; forwards to the Jev service |
 | `apps/jev` | FastAPI · `typesafe-sdk` · Python | **The only process holding the Jev API key and the question bank.** The scoring engine. |
 | `apps/worker` | Python · SQLAlchemy · reuses `skillguard` | Mass-analysis: ingest skills at scale, score with Jev, store results in a DB. Batch/daemon, not part of `bun run dev`. See [ADR-0008](docs/adr/0008-mass-analysis-worker.md). |
-| `packages/api` | oRPC router + Zod | `analyze` + `catalog` procedures; `src/jev.ts` is the sole TS↔Jev boundary |
+| `packages/api` | oRPC router + Zod | `analyze` + `catalog` + `artifact` procedures; `src/jev.ts` is the sole TS↔Jev boundary |
 | `packages/ui` | shadcn (base-lyra) on base-ui, Tailwind v4 | Shared components |
 
 Data flow: **analyze:** web → `/rpc/*` (server) → `POST /analyze` (jev) → Jev API. **catalog (hub):** web → `/rpc/*` (server) → Neon Postgres (`DATABASE_URL`), else jev `GET /catalog` (static fallback). The TS side never talks to Jev's API directly — that boundary is deliberate (ADR-0002); reading the results DB is the one deliberate exception (ADR-0009). Production is one Vercel project with three services (ADR-0009, `docs/architecture.md`).
@@ -41,6 +41,7 @@ cd apps/jev && uv run python -m pytest -q         # engine tests (NOT `pytest`, 
 - **UI real→real invariant:** the risk dial must never flash a wrong intermediate number. `view = calibrated ?? preview`; the instant heuristic (`apps/web/src/lib/provisional.ts`) only fills the first paint; `keepPreviousData` holds the last real reading while re-analyzing. Preserve this when editing `apps/web/src/routes/index.tsx`.
 - **oRPC contract:** don't change the `analyze` / `catalog` output shapes without updating `packages/api/src/jev.ts` (Zod) on both sides.
 - **Design system** (see `docs/design-system.md`): Host Grotesk + JetBrains Mono, monochrome ink/paper, color reserved for risk, hairline structure, `motion` (framer-motion) for reveals. Tokens in `apps/web/src/index.css`; motion primitives in `apps/web/src/components/motion.tsx`.
+- **Stored artifact text is untrusted:** the hub shows it as plain text only (`<pre>`), never markdown/HTML. Don't render it richly.
 - **The hub reads Neon in production** (paginated by keyset cursor; real artifacts have no ground-truth label). Without `DATABASE_URL` it falls back to the static demo catalog, generated offline from cached readings — regenerate after corpus/weight changes: `cd apps/jev && uv run python eval/build_catalog.py`.
 
 ## Gotchas
