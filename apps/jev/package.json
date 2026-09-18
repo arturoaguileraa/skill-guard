@@ -1,0 +1,10 @@
+{
+  "name": "@jev-analysis/jev",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "uv run python -m uvicorn skillguard.service:app --reload --port 8000",
+    "start": "uv run python -m uvicorn skillguard.service:app --port 8000",
+    "check-types": "uv run python -c \"import skillguard.service\""
+  }
+}

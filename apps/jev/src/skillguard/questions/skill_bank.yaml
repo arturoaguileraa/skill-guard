@@ -1,0 +1,228 @@
+# Question bank v1 -- agent-facing artifacts (Claude Code skills, MCP servers).
+#
+# Design rules, derived from Jev's documented failure modes:
+#   * Jev reads literally -> every question names the part of state it scopes to.
+#   * Jev is bad at numbers -> counting/comparison lives in extract/facts.py.
+#   * Noul yes/no is ambiguous under negation -> always describe both outcomes.
+#   * A question asks about OBSERVED behavior, never about "is this malicious".
+#     The verdict is composed in code from these atoms, so it stays auditable.
+version: 1
+target: skill
+
+# Family weights tuned on the 68-artifact eval corpus (34 malicious / 34 benign)
+# via eval/tune_weights.py -- see eval/REPORT.md. Bounded coordinate search over
+# cached Jev readings, holding AUC=1.0 while lowering ECE and lifting the
+# malicious/benign margin. The high-severity families (exfiltration, covert,
+# remote_code) stay high enough that one saturated family still reaches block on
+# its own; the families that benign hard-negatives legitimately trip -- a
+# consensual irreversible action (destructive), a plausible extra capability
+# (scope), an encoded-but-explained asset (obfuscation) -- were the ones lowered,
+# because in the corpus they fire on benign work while malicious artifacts never
+# rely on them alone.
+families:
+  exfiltration: { weight: 0.90, label: "Data leaves the user's machine" }        # 1.00 -> anchor; read+send still blocks, read-only .env now reviews
+  covert: { weight: 0.85, label: "Behavior concealed from the user" }            # 0.95
+  remote_code: { weight: 0.82, label: "Code fetched and executed" }              # 0.85
+  override: { weight: 0.75, label: "Agent's own rules subverted" }               # 0.90
+  scope: { weight: 0.40, label: "Capability beyond declared purpose" }           # 0.55 -- benign tools plausibly exceed purpose
+  obfuscation: { weight: 0.30, label: "Payload or intent hidden" }               # 0.50 -- supporting signal, not block-alone
+  destructive: { weight: 0.25, label: "Irreversible action without consent" }    # 0.60 -- biggest FP driver (consensual publish/revoke)
+
+questions:
+  # --- exfiltration -------------------------------------------------------
+  - id: reads_credentials
+    family: exfiltration
+    type: noul
+    instructions: >-
+      Do the instructions or bundled files direct the agent to read credential
+      material -- SSH private keys, cloud credential files, .npmrc/.pypirc
+      tokens, .env secrets, browser cookies, or keychain entries?
+    criteria:
+      true: "It reads, opens, cats, greps or globs such a file or secret store."
+      false: "It does not, or it only names such a file as an example of what NOT to touch."
+
+  - id: sends_data_offhost
+    family: exfiltration
+    type: noul
+    instructions: >-
+      Do the instructions or bundled files transmit file contents, environment
+      variables, or conversation content to a network destination that is not
+      the service the artifact exists to operate?
+    criteria:
+      true: "Content is POSTed, uploaded, piped to a remote host, or encoded into a URL."
+      false: "Network access is absent, read-only fetching of public docs, or confined to the artifact's own declared service."
+
+  - id: harvests_conversation
+    family: exfiltration
+    type: noul
+    instructions: >-
+      Do the instructions direct the agent to collect, summarize, or forward the
+      contents of the user's conversation, prompts, or other sessions?
+    criteria:
+      true: "It captures conversation or session content for somewhere other than the user's own visible output."
+      false: "It only uses the current request to do the task it describes."
+
+  # --- covert -------------------------------------------------------------
+  - id: hides_from_user
+    family: covert
+    type: noul
+    instructions: >-
+      Do the instructions tell the agent to withhold information from the user,
+      act without informing them, or suppress the reporting of an action?
+    criteria:
+      true: "Phrasings like do not tell the user, do not mention, silently, without showing."
+      false: "No such direction; being merely concise or avoiding verbosity does not count."
+
+  - id: conditional_trigger
+    family: covert
+    type: noul
+    instructions: >-
+      Is there a condition under which the agent is told to behave differently
+      in a way unrelated to the artifact's stated task -- a specific phrase,
+      user, date, hostname, or environment that unlocks other behavior?
+    criteria:
+      true: "A trigger gates behavior that the stated purpose does not explain."
+      false: "Conditions are ordinary task logic, e.g. different steps per language or per framework."
+
+  - id: persistence
+    family: covert
+    type: noul
+    instructions: >-
+      Do the instructions or bundled files modify agent or shell configuration
+      so that behavior persists beyond this task -- editing settings.json,
+      installing hooks, writing to shell rc files, or adding cron entries?
+    criteria:
+      true: "It writes to a config that changes future sessions."
+      false: "It only reads config, or writes files that are part of the user's requested work."
+
+  # --- override -----------------------------------------------------------
+  - id: overrides_agent_rules
+    family: override
+    type: noul
+    instructions: >-
+      Do the instructions attempt to replace, disable, or outrank the agent's
+      own operating rules, safety guidance, or confirmation requirements?
+    criteria:
+      true: "Ignore previous instructions, you are now X, skip all confirmations, disregard safety."
+      false: "It only describes how to do its task, however emphatically."
+
+  - id: false_assurance
+    family: override
+    type: noul
+    instructions: >-
+      Does the text assert its own trustworthiness -- that it is audited,
+      approved, safe, or verified -- in a way that pre-empts scrutiny rather
+      than documenting a real, checkable provenance?
+    criteria:
+      true: "Unverifiable self-certification aimed at the agent or reviewer."
+      false: "No such claim, or a specific checkable reference such as a named audit with a link."
+
+  - id: disables_confirmation
+    family: override
+    type: noul
+    instructions: >-
+      Do the instructions direct the agent to run commands without asking, to
+      auto-approve, or to use flags whose purpose is to skip a safety prompt?
+    criteria:
+      true: "It suppresses a confirmation the user would otherwise see."
+      false: "It uses non-interactive flags for genuinely non-destructive commands, e.g. --no-pager."
+
+  # --- remote_code --------------------------------------------------------
+  - id: fetch_and_execute
+    family: remote_code
+    type: noul
+    instructions: >-
+      Do the instructions or bundled files download content from the network and
+      then execute it -- piping to a shell, eval, exec, or writing then running it?
+    criteria:
+      true: "Downloaded bytes reach an interpreter or become an executable that is run."
+      false: "Downloads are read as data only, or installs come from a package manager's normal registry."
+
+  - id: unpinned_remote_source
+    family: remote_code
+    type: noul
+    instructions: >-
+      Under computed_facts, do the listed hosts include a destination that is
+      not a well-known package registry, source forge, or documentation site?
+    criteria:
+      true: "At least one host is a personal domain, raw IP, URL shortener, paste site, or webhook collector."
+      false: "All hosts are mainstream registries, forges, or documentation."
+
+  # --- scope --------------------------------------------------------------
+  - id: capability_beyond_purpose
+    family: scope
+    type: score
+    instructions: >-
+      Compare the capabilities exercised in instructions_text and bundled_files
+      against the purpose stated in declared_metadata.description.
+    criteria:
+      - "Every capability used is needed for the stated purpose."
+      - "Some capability exceeds the stated purpose but is a plausible convenience for it."
+      - "A capability is present that the stated purpose does not explain at all."
+
+  - id: tool_escalation
+    family: scope
+    type: noul
+    instructions: >-
+      Do the instructions push the agent toward broader tool access than the
+      task needs -- requesting unrestricted shell, disabling tool limits, or
+      routing around a declared allowed-tools list?
+    criteria:
+      true: "It asks for or works around access limits."
+      false: "Tool use stays within what the task plainly requires."
+
+  # --- obfuscation --------------------------------------------------------
+  - id: encoded_payload
+    family: obfuscation
+    type: noul
+    instructions: >-
+      Is there content that appears deliberately encoded or hidden -- long
+      base64 or hex blobs, character-code arrays, or string reassembly whose
+      purpose is not explained?
+    criteria:
+      true: "Encoded content is present and its purpose is not stated."
+      false: "No encoded content, or encoding is explained and incidental, e.g. a sample fixture or an icon."
+
+  - id: misleading_naming
+    family: obfuscation
+    type: noul
+    instructions: >-
+      Does the artifact's name or description in declared_metadata describe
+      something materially different from what instructions_text does?
+    criteria:
+      true: "Name or description points away from the actual behavior."
+      false: "Name and description describe the behavior accurately, even if briefly."
+
+  - id: obfuscation_technique
+    family: obfuscation
+    type: choice
+    instructions: "Which technique best describes how the artifact's content is presented?"
+    criteria:
+      plain: "Readable prose and readable code."
+      minified: "Compressed but not deliberately disguised."
+      encoded_blob: "Contains base64, hex, or similar opaque encoded content."
+      string_assembly: "Builds identifiers or commands from fragments at runtime."
+      indirection: "Routes behavior through layers that obscure what finally runs."
+
+  # --- destructive --------------------------------------------------------
+  - id: destructive_action
+    family: destructive
+    type: score
+    instructions: >-
+      What is the worst irreversible action the instructions or bundled files
+      could cause on the user's machine or accounts?
+    criteria:
+      - "Nothing irreversible; reads, or writes confined to the working tree."
+      - "Reversible-with-effort changes: installs packages, rewrites tracked files, amends local commits."
+      - "Irreversible loss or disclosure: deletes outside the working tree, force-pushes, rotates or revokes credentials, publishes."
+
+  # --- calibration control ------------------------------------------------
+  # Not scored. A question whose answer we already know from facts, used to
+  # detect when adversarial text has skewed the model's whole response.
+  - id: control_states_purpose
+    family: control
+    type: noul
+    instructions: "Does declared_metadata contain a non-empty description field?"
+    criteria:
+      true: "A description is present."
+      false: "It is missing or empty."

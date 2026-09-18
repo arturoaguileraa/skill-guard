@@ -1,0 +1,3 @@
+{
+  "extends": "@jev-analysis/config/tsconfig.base.json"
+}

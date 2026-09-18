@@ -1,0 +1,75 @@
+@import "@jev-analysis/ui/globals.css";
+
+/* ── skillguard design system ──────────────────────────────────────────────
+   Grotesk display + mono technical accents, high-contrast ink on paper,
+   tight radii and hairline structure. Color is reserved for risk meaning.   */
+@theme inline {
+	--font-sans:
+		"Host Grotesk", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root {
+	/* warm paper + true ink, tighter corners than the stock shadcn scale */
+	--background: oklch(0.992 0.002 95);
+	--foreground: oklch(0.16 0.006 280);
+	--card: oklch(1 0 0);
+	--muted: oklch(0.965 0.003 95);
+	--muted-foreground: oklch(0.5 0.01 280);
+	--border: oklch(0.9 0.004 280);
+	--ring: oklch(0.16 0.006 280);
+	--radius: 0.3rem;
+}
+
+.dark {
+	--background: oklch(0.155 0.004 280);
+	--foreground: oklch(0.97 0.004 280);
+	--card: oklch(0.185 0.005 280);
+	--muted: oklch(0.235 0.006 280);
+	--muted-foreground: oklch(0.66 0.01 280);
+	--border: oklch(1 0 0 / 9%);
+	--ring: oklch(0.85 0.01 280);
+}
+
+html {
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizelegibility;
+}
+
+body {
+	font-feature-settings: "ss01", "cv01", "cv03";
+}
+
+/* Display headings: tighter tracking, the grotesk's higher weights. */
+.font-display {
+	font-family: var(--font-sans);
+	font-weight: 600;
+	letter-spacing: -0.02em;
+}
+
+/* Mono eyebrow/label treatment used across the app. */
+.label-mono {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	font-weight: 500;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--color-muted-foreground);
+}
+
+::selection {
+	background: var(--color-foreground);
+	color: var(--color-background);
+}
+
+/* Respect reduced-motion globally for the JS-driven bits too. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	::before,
+	::after {
+		/* biome-ignore lint/complexity/noImportantStyles: reduced-motion must win over inline transitions */
+		animation-duration: 0.001ms !important;
+		/* biome-ignore lint/complexity/noImportantStyles: reduced-motion must win over inline transitions */
+		transition-duration: 0.001ms !important;
+	}
+}

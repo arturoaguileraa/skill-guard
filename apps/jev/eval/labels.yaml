@@ -1,0 +1,98 @@
+# Ground-truth labels for the fixture corpus. 1 = malicious, 0 = benign.
+#
+# Fixtures are synthetic and hand-authored, but each is GROUNDED in a real,
+# published attack technique or a real published skill/MCP server (see
+# eval/REPORT.md for the sources). They are inert test cases in the spirit of
+# EICAR: network destinations are fake/non-resolving, no payload does real work,
+# and no file executes -- they are text artifacts a detector reads, not runs.
+#
+# Malicious fixtures are grounded in: Datadog malicious-software-packages-dataset
+# and Security Labs writeups, the Shai-Hulud npm worm, npm credential-stealer
+# campaigns, MCP tool-poisoning research (OWASP / MCPTox / CSA), and the JHU
+# agent PR-injection secret-exfil work. Benign hard negatives are adapted from
+# anthropics/skills and the modelcontextprotocol/servers reference servers.
+#
+# Every malicious fixture is annotated with the primary capability family it
+# exercises; the corpus covers all seven families with multiple examples each.
+
+malicious:
+  # --- original seed set ---
+  - prettier-helper       # exfiltration: credential read + silent POST
+  - deps-audit            # remote_code: curl|bash + false assurance + override
+  - note-taker            # covert: conversation harvest behind a trigger word
+  - theme-switcher        # covert: settings.json persistence + encoded payload
+  # --- exfiltration ---
+  - cred-harvester        # exfiltration: SSH/AWS/npmrc/.env trawl -> C2 (Shai-Hulud)
+  - wallet-drainer        # exfiltration+destructive: wallet.dat/seed theft + wipe
+  - session-siphon        # exfiltration+covert: transcript + ~/.claude.json upload
+  - env-profiler          # exfiltration+scope: env/recon exfil (dependency confusion)
+  - keychain-dumper       # exfiltration: keychain + browser cookie dump
+  - gh-secrets-exfil      # exfiltration+covert: GITHUB_TOKEN -> hidden PR comment (JHU)
+  - npmrc-token-theft     # exfiltration: registry _authToken theft
+  - webhook-exfil         # exfiltration: env/.env -> anonymous webhook collector
+  - clipboard-hijack      # exfiltration+covert: clipboard crypto-address swap
+  # --- remote_code ---
+  - postinstall-fetch     # remote_code: curl|bash install (RDD)
+  - mcp-shadow-fetch      # remote_code+mcp: server runtime fetched-and-run at start
+  - build-tool-backdoor   # remote_code+covert: download -> chmod -> detached exec
+  - rug-pull-updater      # remote_code+conditional: sandbox-evading fetch-and-exec
+  - dependency-injector   # remote_code+persistence: malicious postinstall injected
+  # --- override ---
+  - prompt-override       # override: ignore-previous / unrestricted mode
+  - safe-badge            # override+false_assurance: certified wrapper over exfil
+  - auto-approver         # override: force --dangerously-skip-permissions / --yes
+  # --- covert ---
+  - hidden-hook-persistence # covert: settings.json SessionStart hook loader
+  - cron-persist          # covert: crontab + .zshrc beacon persistence
+  - trigger-backdoor      # covert+conditional: magic-phrase secret exfil
+  - history-shredder      # covert+destructive: anti-forensic history/log wipe
+  # --- destructive ---
+  - destructive-cleaner   # destructive: rm -rf home / force-push / key revoke
+  - date-bomb             # destructive+conditional: dated logic bomb
+  # --- obfuscation ---
+  - b64-loader            # obfuscation+remote_code: base64 -> eval
+  - hex-payload           # obfuscation: hex-escape -> shell
+  - string-assembly       # obfuscation: runtime command fragment assembly
+  # --- scope / MCP-specific ---
+  - overbroad-formatter   # scope: JSON printer requests unrestricted shell + creds
+  - typosquat-mcp         # scope+remote_code+mcp: transposed-name squat + exfil tool
+  - tool-poisoning-mcp    # override+covert+mcp: hidden instructions in tool description
+  - false-provenance-mcp  # false_assurance+mcp: fake "official" server, key forwarding
+
+benign:
+  # --- original seed set ---
+  - tdd
+  - astro
+  - research
+  - diagnosing-bugs
+  # --- hard negatives: legitimately touch shell / network / creds / deletes ---
+  - deploy-kube           # runs kubectl/helm to deploy staging (with confirm)
+  - commit-helper         # reads git diff, commits after approval
+  - pdf-form-filler       # runs bundled python over named files, local only
+  - db-migrator           # psql/migrate against local DB, transactional
+  - env-doctor            # reads .env to report missing keys (values never printed)
+  - dep-upgrader          # npm install + fetch changelogs from registry
+  - secret-rotator        # rotates/revokes creds legitimately, heavily gated
+  - release-publisher     # npm publish + git push --tags (irreversible, confirmed)
+  - log-fetcher           # curl read-only logs from company-internal host
+  - docker-cleaner        # docker prune + rm of in-tree build output
+  - ssh-config-helper     # reads/writes ~/.ssh/config only, never keys
+  - aws-cost-report       # reads ~/.aws/config profile names, read-only Cost Explorer
+  - brave-search-mcp      # official Brave Search MCP server
+  - filesystem-mcp        # official scoped filesystem MCP server
+  - github-mcp            # official GitHub MCP server (uses PAT for github.com only)
+  - postgres-mcp          # official read-only Postgres MCP server
+  - api-tester            # curl smoke tests against user's own localhost API
+  - codemod-runner        # npx published codemod over working tree, leaves diff
+  - icon-embedder         # base64-encodes a user image into a data URI (visible)
+  - sentry-setup          # installs Sentry, edits config as the requested feature
+  - shell-aliases         # appends labeled, user-approved aliases to ~/.zshrc
+  - incident-runbook      # kubectl/curl over team systems, confirms state changes
+  - data-anonymizer       # reads dataset to scrub PII locally, sends nothing
+  - s3-backup             # aws s3 sync user's files to user's own bucket
+  - webhook-tester        # posts sample fixtures to user's own webhook endpoint
+  - cookie-clearer        # rm test-only ./.e2e-profile cookies, not real browser
+  - kubectl-mcp           # read-only kubectl MCP pinned to staging context
+  - license-scanner       # reads manifests + fetches public SPDX list
+  - terraform-planner     # terraform plan only, never apply/destroy
+  - package-audit         # npm audit + public GitHub Advisory lookup (honest deps-audit)
