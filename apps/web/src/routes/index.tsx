@@ -1,18 +1,26 @@
+import type { AnalyzeResult } from "@jev-analysis/api/jev";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "@jev-analysis/ui/components/tooltip";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+	keepPreviousData,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Reveal } from "@/components/motion";
 import { SensitivityPanel } from "@/components/sensitivity";
 import { computeProvisional, findFlaggedPhrases } from "@/lib/provisional";
 import {
+	findLure,
 	matchPreset,
 	PRESETS,
+	removeLure,
 	signalDescription,
 	signalLabel,
 } from "@/lib/skillguard";
@@ -181,9 +189,133 @@ function useDebounced<T>(value: T, ms: number): T {
 	return d;
 }
 
+/* ── "delete this and watch" nudge ──────────────────────────────────────── */
+const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
+
+function Verdict({ d, risk }: { d: Decision; risk: number }) {
+	return (
+		<span className={`font-mono ${DECISION[d].tint}`}>
+			{DECISION[d].label} {pct(risk)}
+		</span>
+	);
+}
+
+/** Shown while the attack paragraph is still in the text: invites the visitor to delete it. */
+function TryDeleteNudge({
+	snippet,
+	onSelect,
+	onDelete,
+}: {
+	snippet: string;
+	onSelect: () => void;
+	onDelete: () => void;
+}) {
+	return (
+		<div className="flex flex-col gap-2 border-border border-b px-4 py-3">
+			<span className="label-mono flex items-center gap-2">
+				<span className="size-1.5 animate-pulse rounded-full bg-foreground" />
+				Try it
+			</span>
+			<p className="text-sm leading-relaxed">
+				Delete the paragraph that starts{" "}
+				<span className="font-mono text-xs">“{snippet}”</span> and watch the
+				verdict.
+			</p>
+			<div className="flex flex-wrap gap-2">
+				<button
+					type="button"
+					onClick={onSelect}
+					className="rounded-[--radius] border border-foreground bg-foreground px-3 py-1.5 font-mono text-background text-xs transition-opacity hover:opacity-85"
+				>
+					Select it
+				</button>
+				<button
+					type="button"
+					onClick={onDelete}
+					className="rounded-[--radius] border border-border px-3 py-1.5 font-mono text-muted-foreground text-xs transition-colors hover:border-foreground/40 hover:text-foreground"
+				>
+					or delete it for me
+				</button>
+			</div>
+		</div>
+	);
+}
+
+/**
+ * Shown after the paragraph is gone. The numbers come only from real Jev
+ * readings (the cached one for the original text, and the current one), so it
+ * never shows a provisional value and never promises a verdict it didn't get.
+ */
+function DeltaResult({
+	before,
+	after,
+	pending,
+	onRestore,
+}: {
+	before?: AnalyzeResult;
+	after?: AnalyzeResult;
+	pending: boolean;
+	onRestore: () => void;
+}) {
+	const changed = before && after && before.decision !== after.decision;
+	return (
+		<div
+			className="flex flex-col gap-2 border-border border-b px-4 py-3"
+			aria-live="polite"
+		>
+			<span className="label-mono">You removed the exfiltration step</span>
+			{pending || !after ? (
+				<p className="flex items-center gap-2 text-muted-foreground text-sm">
+					<span className="size-1.5 animate-pulse rounded-full bg-muted-foreground" />
+					Re-scoring without it…
+				</p>
+			) : (
+				<p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+					{before && (
+						<>
+							<Verdict d={before.decision} risk={before.risk} />
+							<span className="text-muted-foreground">→</span>
+						</>
+					)}
+					<Verdict d={after.decision} risk={after.risk} />
+					<span className="text-muted-foreground">
+						{changed
+							? "— same skill, minus one paragraph."
+							: before
+								? "— still not clean: other signals remain."
+								: ""}
+					</span>
+				</p>
+			)}
+			<div>
+				<button
+					type="button"
+					onClick={onRestore}
+					className="rounded-[--radius] border border-border px-3 py-1.5 font-mono text-muted-foreground text-xs transition-colors hover:border-foreground/40 hover:text-foreground"
+				>
+					Put it back
+				</button>
+			</div>
+		</div>
+	);
+}
+
 function TesterRoute() {
 	const [text, setText] = useState(PRESETS[0].text);
+	// The pristine exfil text, kept once the visitor deletes its attack paragraph.
+	const [original, setOriginal] = useState<string | null>(null);
+	const taRef = useRef<HTMLTextAreaElement>(null);
+	const reduceMotion = useReducedMotion();
+	const queryClient = useQueryClient();
 	const debounced = useDebounced(text, 180);
+
+	// Any edit funnels through here so we notice the paragraph being removed.
+	function edit(next: string) {
+		if (matchPreset(text)?.id === "exfil" && next !== text && !findLure(next))
+			setOriginal(text);
+		else if (findLure(next)) setOriginal(null);
+		setText(next);
+	}
 
 	const query = useQuery({
 		...orpc.analyze.queryOptions({ input: { text: debounced } }),
@@ -207,6 +339,25 @@ function TesterRoute() {
 	const meta = DECISION[decision];
 
 	const activePreset = matchPreset(text);
+	const lure = useMemo(() => findLure(text), [text]);
+	const showNudge = Boolean(lure);
+	const showDelta = Boolean(original) && !lure;
+	// The reading we already have for the untouched text (real, from the cache).
+	const before = original
+		? queryClient.getQueryData<AnalyzeResult>(
+				orpc.analyze.queryKey({ input: { text: original } }),
+			)
+		: undefined;
+
+	function selectLure() {
+		const ta = taRef.current;
+		if (!lure || !ta) return;
+		ta.focus();
+		ta.setSelectionRange(lure.start, lure.end);
+		const line = text.slice(0, lure.start).split("\n").length - 1;
+		ta.scrollTop = Math.max(0, line * 21 - 40);
+	}
+
 	const lines = text.split("\n").length;
 
 	return (
@@ -245,7 +396,10 @@ function TesterRoute() {
 						<button
 							key={p.id}
 							type="button"
-							onClick={() => setText(p.text)}
+							onClick={() => {
+								setOriginal(null);
+								setText(p.text);
+							}}
 							className={`rounded-[--radius] border px-3 py-1.5 font-mono text-xs transition-colors ${
 								active
 									? "border-foreground bg-foreground text-background"
@@ -270,9 +424,39 @@ function TesterRoute() {
 							{lines} ln · {text.length} ch
 						</span>
 					</div>
+					<AnimatePresence initial={false} mode="wait">
+						{(showNudge || showDelta) && (
+							<motion.div
+								key={showNudge ? "nudge" : "delta"}
+								initial={reduceMotion ? false : { opacity: 0, y: -6 }}
+								animate={{ opacity: 1, y: 0 }}
+								exit={reduceMotion ? undefined : { opacity: 0 }}
+								transition={{ duration: 0.25 }}
+							>
+								{showNudge && lure ? (
+									<TryDeleteNudge
+										snippet={lure.snippet}
+										onSelect={selectLure}
+										onDelete={() => edit(removeLure(text))}
+									/>
+								) : (
+									<DeltaResult
+										before={before}
+										after={fresh ? calibrated : undefined}
+										pending={!fresh}
+										onRestore={() => {
+											if (original) setText(original);
+											setOriginal(null);
+										}}
+									/>
+								)}
+							</motion.div>
+						)}
+					</AnimatePresence>
 					<textarea
+						ref={taRef}
 						value={text}
-						onChange={(e) => setText(e.target.value)}
+						onChange={(e) => edit(e.target.value)}
 						spellCheck={false}
 						placeholder="Paste a Claude Code skill or MCP server definition…"
 						className="min-h-[24rem] flex-1 resize-none bg-transparent p-4 font-mono text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground/60"
