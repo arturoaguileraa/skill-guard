@@ -1,0 +1,14 @@
+{
+  "name": "@jev-analysis/worker",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "init-db": "uv run worker init-db",
+    "ingest-local": "uv run worker ingest-local",
+    "ingest-github": "uv run worker ingest-github",
+    "work": "uv run worker run --batch 16",
+    "work:forever": "uv run worker run --forever --batch 16",
+    "stats": "uv run worker stats",
+    "check-types": "uv run python -c \"import worker.cli, worker.run, worker.ingest, worker.store, worker.db, worker.scorer\""
+  }
+}

@@ -13,6 +13,7 @@ Guidance for agents working in this repo. Keep it current when architecture or c
 | `apps/web` | React 19 · Vite · TanStack Router · TS | UI: live tester (`/`), value prop (`/why`), analyzed-skills hub (`/hub`) |
 | `apps/server` | Hono · oRPC · TS | Typed BFF the web calls; forwards to the Jev service |
 | `apps/jev` | FastAPI · `typesafe-sdk` · Python | **The only process holding the Jev API key and the question bank.** The scoring engine. |
+| `apps/worker` | Python · SQLAlchemy · reuses `skillguard` | Mass-analysis: ingest skills at scale, score with Jev, store results in a DB. Batch/daemon, not part of `bun run dev`. See [ADR-0008](docs/adr/0008-mass-analysis-worker.md). |
 | `packages/api` | oRPC router + Zod | `analyze` + `catalog` procedures; `src/jev.ts` is the sole TS↔Jev boundary |
 | `packages/ui` | shadcn (base-lyra) on base-ui, Tailwind v4 | Shared components |
 
