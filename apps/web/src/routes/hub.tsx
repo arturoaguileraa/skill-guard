@@ -8,6 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { Reveal } from "@/components/motion";
+import { formatCount } from "@/lib/format";
 import { VERDICT_LABEL } from "@/lib/skillguard";
 import { orpc } from "@/utils/orpc";
 
@@ -30,9 +31,21 @@ const DECISION_TINT: Record<string, string> = {
 const riskColor = (v: number) =>
 	v >= 0.8 ? "bg-red-500" : v >= 0.55 ? "bg-amber-500" : "bg-emerald-500";
 
-function Stat({ n, label }: { n: string | number; label: string }) {
+/** `exact` shows the full number on hover / long-press when `n` is compacted (10.2k). */
+function Stat({
+	n,
+	label,
+	exact,
+}: {
+	n: string | number;
+	label: string;
+	exact?: number;
+}) {
 	return (
-		<div className="flex flex-col gap-1 bg-background p-4">
+		<div
+			title={exact === undefined ? undefined : exact.toLocaleString("en")}
+			className="flex flex-col gap-1 bg-background p-4"
+		>
 			<span className="font-display text-3xl tabular-nums">{n}</span>
 			<span className="label-mono">{label}</span>
 		</div>
@@ -49,7 +62,7 @@ function SourceText({ slug }: { slug: string }) {
 	if (isError || !data)
 		return (
 			<p className="text-muted-foreground text-xs">
-				Source text isn't available for this artifact.
+				Source text isn't available for this skill.
 			</p>
 		);
 	return (
@@ -261,7 +274,7 @@ function HubRoute() {
 				</Reveal>
 				<Reveal delay={0.1}>
 					<p className="mt-6 max-w-xl text-muted-foreground leading-relaxed">
-						Every artifact we've scored, with its verdict and the signals behind
+						Every skill we've scored, with its verdict and the signals behind
 						it. Search a name to see whether it tripped anything.
 					</p>
 				</Reveal>
@@ -269,8 +282,8 @@ function HubRoute() {
 					{first && !isDb ? (
 						<p className="mt-4 max-w-xl rounded-[--radius] border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-amber-700 text-xs leading-relaxed dark:text-amber-300/90">
 							Demo corpus. These are synthetic, grounded-in-real-technique test
-							artifacts — not a verdict on any real published skill. It shows
-							how the triage behaves, not an authoritative registry.
+							samples — not a verdict on any real published skill. It shows how
+							the triage behaves, not an authoritative registry.
 						</p>
 					) : (
 						<p className="mt-4 max-w-xl rounded-[--radius] border border-border px-3 py-2 text-muted-foreground text-xs leading-relaxed">
@@ -290,10 +303,23 @@ function HubRoute() {
 			) : (
 				<>
 					<div className="grid grid-cols-2 gap-px overflow-hidden border-border border-x border-b bg-border sm:grid-cols-4">
-						<Stat n={first?.count ?? "—"} label="artifacts" />
-						<Stat n={first?.malicious ?? "—"} label="malicious" />
 						<Stat
-							n={isDb ? (first?.escalate ?? "—") : (first?.benign ?? "—")}
+							n={first ? formatCount(first.count) : "—"}
+							exact={first?.count}
+							label="skills analyzed"
+						/>
+						<Stat
+							n={first ? formatCount(first.malicious) : "—"}
+							exact={first?.malicious}
+							label="malicious"
+						/>
+						<Stat
+							n={
+								first
+									? formatCount(isDb ? (first.escalate ?? 0) : first.benign)
+									: "—"
+							}
+							exact={isDb ? first?.escalate : first?.benign}
 							label={isDb ? "suspicious" : "benign"}
 						/>
 						<Stat
@@ -338,7 +364,7 @@ function HubRoute() {
 							<div className="bg-background px-4 py-16 text-center text-muted-foreground text-sm">
 								{search
 									? `Nothing matches “${search}”.`
-									: "No artifacts scored yet."}
+									: "No skills scored yet."}
 							</div>
 						) : (
 							items.map((it) => <Row key={it.slug} item={it} />)
@@ -351,7 +377,8 @@ function HubRoute() {
 							className="flex items-center justify-between px-1 pt-4 font-mono text-[11px] text-muted-foreground"
 						>
 							<span>
-								{items.length} of {first?.total ?? items.length}
+								{formatCount(items.length)} of{" "}
+								{formatCount(first?.total ?? items.length)}
 							</span>
 							{hasNextPage ? (
 								<button

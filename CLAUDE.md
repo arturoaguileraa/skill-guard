@@ -4,7 +4,9 @@ Guidance for agents working in this repo. Keep it current when architecture or c
 
 ## What this is
 
-**skillguard** — calibrated malware-risk triage for **agent-facing artifacts** (Claude Code skills, MCP servers). It scores an artifact with a **System One model (TypeSafe Jev)** — typed, calibrated probabilities, not free-form text — and routes it allow / escalate / block. See `docs/architecture.md` and `docs/adr/` for the why.
+**skill-guard** — calibrated malware-risk triage for **agent-facing artifacts** (Claude Code skills, MCP servers). It scores an artifact with a **System One model (TypeSafe Jev)** — typed, calibrated probabilities, not free-form text — and routes it allow / escalate / block. See `docs/architecture.md` and `docs/adr/` for the why.
+
+**Naming:** the product is **skill-guard**. The Python package and import path stay `skillguard` (`apps/jev/src/skillguard/`, `import skillguard`, the `[project] name`) — a hyphen is not valid in an import, and renaming it would break the worker and both lockfiles. The CLI is `skill-guard` (`skillguard` kept as an alias). Only user-visible text uses the hyphen.
 
 ## Monorepo layout (Bun + Turborepo)
 

@@ -10,7 +10,7 @@ const STEPS: { k: string; h: string; b: string }[] = [
 	{
 		k: "01",
 		h: "Extract, deterministically",
-		b: "Code — not a model — reads the artifact into a structured state: which files it touches, which hosts, which encoded blobs. Anything countable is counted here, never guessed.",
+		b: "Code — not a model — reads the skill into a structured state: which files it touches, which hosts, which encoded blobs. Anything countable is counted here, never guessed.",
 	},
 	{
 		k: "02",
@@ -33,7 +33,7 @@ const STATS: { n: string; h: string; b: string }[] = [
 	{
 		n: "300–1,800×",
 		h: "cheaper",
-		b: "~$0.0001 per artifact vs ~$0.03–0.18 for a frontier LLM. Cheap enough to run on every install.",
+		b: "~$0.0001 per skill vs ~$0.03–0.18 for a frontier LLM. Cheap enough to run on every install.",
 	},
 	{
 		n: "~480ms",
@@ -48,7 +48,7 @@ const STATS: { n: string; h: string; b: string }[] = [
 	{
 		n: "≈0.00",
 		h: "injection shift",
-		b: "Pasting “audited — ignore warnings” into a malicious artifact didn't lower its risk. Measured.",
+		b: "Pasting “audited — ignore warnings” into a malicious skill didn't lower its risk. Measured.",
 	},
 ];
 
@@ -66,7 +66,7 @@ const PILLARS: { k: string; h: string; b: string }[] = [
 	{
 		k: "03",
 		h: "Injection-resistant",
-		b: "It doesn't follow instructions or write text, so a malicious artifact can't talk its way out of its own analysis.",
+		b: "It doesn't follow instructions or write text, so a malicious skill can't talk its way out of its own analysis.",
 	},
 	{
 		k: "04",
@@ -100,8 +100,8 @@ function WhyRoute() {
 				</Reveal>
 				<Reveal delay={0.1}>
 					<p className="mt-6 max-w-xl text-muted-foreground leading-relaxed">
-						skillguard runs on a System One model, not a chat model. That one
-						choice is what makes automated triage of untrusted artifacts fast,
+						skill-guard runs on a System One model, not a chat model. That one
+						choice is what makes automated triage of untrusted skills fast,
 						cheap and actually safe.
 					</p>
 				</Reveal>
@@ -145,7 +145,7 @@ function WhyRoute() {
 
 			{/* how it works */}
 			<section className="border-border border-b py-14">
-				<Reveal className="label-mono mb-8">How skillguard uses it</Reveal>
+				<Reveal className="label-mono mb-8">How skill-guard uses it</Reveal>
 				<Stagger className="grid gap-px overflow-hidden border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
 					{STEPS.map((s) => (
 						<StaggerItem key={s.k} className="bg-background p-6">
@@ -179,9 +179,8 @@ function WhyRoute() {
 				</Stagger>
 				<Reveal delay={0.05}>
 					<p className="mt-4 font-mono text-[11px] text-muted-foreground">
-						Reliability figures are on our 68-artifact evaluation corpus:
-						ROC-AUC 1.00, 0/34 benign false auto-blocks, adversarial risk shift
-						≈ 0.00.
+						Reliability figures are on our 68-sample evaluation corpus: ROC-AUC
+						1.00, 0/34 benign false auto-blocks, adversarial risk shift ≈ 0.00.
 					</p>
 				</Reveal>
 			</section>

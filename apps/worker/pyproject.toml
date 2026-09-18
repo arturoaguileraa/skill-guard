@@ -1,7 +1,7 @@
 [project]
 name = "worker"
 version = "0.1.0"
-description = "skillguard mass-analysis worker: ingest agent skills at scale, score with Jev, store results"
+description = "skill-guard mass-analysis worker: ingest agent skills at scale, score with Jev, store results"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

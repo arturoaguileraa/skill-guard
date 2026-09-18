@@ -58,7 +58,7 @@ async def _lifespan(app: FastAPI):
             await task
 
 
-app = FastAPI(title="skillguard jev service", version="0.1.0", lifespan=_lifespan)
+app = FastAPI(title="skill-guard jev service", version="0.1.0", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # only the TS server calls this; it runs on localhost

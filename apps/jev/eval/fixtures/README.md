@@ -1,6 +1,6 @@
 # Detector test fixtures
 
-Synthetic artifacts used to measure SkillGuard. They are **inert test cases**,
+Synthetic artifacts used to measure skill-guard. They are **inert test cases**,
 in the spirit of the EICAR test file: every network destination is a reserved
 example domain, no payload does real work, and each file carries the marker
 `SKILLGUARD-FIXTURE`. They exist to exercise a detector, not to be run.

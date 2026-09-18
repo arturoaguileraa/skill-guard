@@ -1,4 +1,4 @@
-# SkillGuard eval corpus enlargement + weight re-tuning
+# skill-guard eval corpus enlargement + weight re-tuning
 
 Date: 2026-09-18
 
