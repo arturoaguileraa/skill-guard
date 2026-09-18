@@ -214,6 +214,58 @@ function useDebounced<T>(value: T, ms: number) {
 	return v;
 }
 
+const GUIDE = [
+	{
+		decision: "allow",
+		rule: "Risk under 55%",
+		body: "Nothing in the text points at dangerous behavior.",
+	},
+	{
+		decision: "escalate",
+		rule: "Risk 55% or more",
+		body: "Worth a human look. This includes skills that can do dangerous things but say so openly: a red-team playbook or an installer can reach 99% risk and still land here, because nothing is hidden.",
+	},
+	{
+		decision: "block",
+		rule: "Risk 80% or more, plus deception",
+		body: "Needs a confident reading and at least 40% evidence of deception: hiding actions from the user, false assurances, encoded payloads, misleading names or data sent off-host.",
+	},
+] as const;
+
+/** Why a 99% skill can be "suspicious": risk measures capability, deception measures concealment. */
+function VerdictGuide() {
+	return (
+		<Reveal className="border-border border-b py-10">
+			<h2 className="label-mono mb-3">How a verdict is decided</h2>
+			<p className="mb-6 max-w-2xl text-muted-foreground text-sm leading-relaxed">
+				Two numbers drive it. <span className="text-foreground">Risk</span> is
+				how much harm the skill could do.{" "}
+				<span className="text-foreground">Deception</span> is whether it hides
+				that. Only both together make a skill “malicious”, so a high risk score
+				alone is “suspicious”.
+			</p>
+			<div className="grid gap-px overflow-hidden border border-border bg-border sm:grid-cols-3">
+				{GUIDE.map((g) => (
+					<div
+						key={g.decision}
+						className="flex flex-col gap-2 bg-background p-4"
+					>
+						<span
+							className={`w-fit rounded-full border px-2 py-0.5 font-mono text-[11px] ${DECISION_TINT[g.decision]}`}
+						>
+							{VERDICT_LABEL[g.decision]}
+						</span>
+						<span className="font-display text-lg">{g.rule}</span>
+						<p className="text-muted-foreground text-xs leading-relaxed">
+							{g.body}
+						</p>
+					</div>
+				))}
+			</div>
+		</Reveal>
+	);
+}
+
 function HubRoute() {
 	const [q, setQ] = useState("");
 	const [filter, setFilter] = useState<Filter>("all");
@@ -295,6 +347,8 @@ function HubRoute() {
 					)}
 				</Reveal>
 			</header>
+
+			<VerdictGuide />
 
 			{isError ? (
 				<p className="py-16 text-center text-muted-foreground text-sm">
