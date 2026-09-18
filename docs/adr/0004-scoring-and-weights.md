@@ -20,3 +20,11 @@ An early unweighted noisy-OR over all families compounded many small, uncertain 
 - **Positive:** Confidence-weighting cut ECE (0.236 → 0.205) and widened the separation margin. Tuned weights took benign false auto-blocks from 4/34 to **0/34** while keeping 34/34 malicious blocked. Verdicts remain fully auditable (per-family, per-signal breakdown drives the UI and the hub).
 - **Current values:** exfiltration 0.90, covert 0.85, remote_code 0.82, override 0.75, scope 0.40, obfuscation 0.30, destructive 0.25; block 0.80, review 0.35. Rationale: the high-severity families stay high enough that one saturated family still blocks alone; the families benign tools legitimately trip (destructive, scope) were lowered. The unconstrained optimum (which collapsed exfiltration to 0.20) was rejected as a corpus overfit.
 - **Negative / follow-up:** Weights are tuned on 68 synthetic-but-grounded fixtures — a small, imperfect proxy for the wild. A cleaner long-term fix than lowering the exfiltration weight is to split "reads a secret" vs "sends a secret" inside that family. Residual ECE ≈ 0.20 is partly floored by hard negatives correctly sitting in the review band against a hard 0/1 label.
+
+## Amendment (2026-09-18): review threshold 0.35 → 0.55
+
+The block threshold (0.80) is unchanged. The **review** threshold was tuned on the 68 synthetic fixtures, whose benign median is already ~0.38. Scoring the first 190 real public skills gave the same picture (median 0.38; p25 0.32, p75 0.47), so at 0.35 about **63%** of clearly benign real skills landed in review — the split between "review" and "allow" was noise around the median, not signal (spot checks of skills just above 0.35 were ordinary code-review, docs and design skills).
+
+Every malicious fixture scores ≥ 0.95, so a higher review threshold costs them nothing. At **0.55**, review holds ~12% of real skills. `decide()` in `score.py` is the single rule; `worker rethreshold` re-decides stored results from stored risk with no Jev call.
+
+**Caveat:** the corpus has no *subtle* malicious example between 0.35 and 0.55, so recall in that band is unmeasured; a subtle attack scoring there now reads as benign. Adding hard positives is the way to close this.

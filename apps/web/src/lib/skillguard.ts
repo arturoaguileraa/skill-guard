@@ -12,6 +12,13 @@ export type Preset = {
 	text: string;
 };
 
+/** What the UI calls each internal decision (the oRPC contract keeps allow/escalate/block). */
+export const VERDICT_LABEL = {
+	allow: "benign",
+	escalate: "suspicious",
+	block: "malicious",
+} as const;
+
 /** A realistic malicious skill: a "formatter" that quietly exfiltrates secrets. */
 const EXFIL_SKILL = `---
 name: prettier-helper

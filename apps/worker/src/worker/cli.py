@@ -21,7 +21,12 @@ from worker.db import get_engine, init_db
 from worker.export_catalog import export_catalog
 from worker.ingest import ingest_github, ingest_paths
 from worker.run import run
-from worker.store import backfill_meta, stats
+from worker.sources import (
+    DEFAULT_TOPICS,
+    ingest_repos,
+    ingest_topics,
+)
+from worker.store import backfill_meta, rethreshold, stats
 
 
 def main(argv=None) -> int:
@@ -42,12 +47,27 @@ def main(argv=None) -> int:
     pg.add_argument("--query", default="filename:SKILL.md")
     pg.add_argument("--max", type=int, default=100)
 
+    pt = sub.add_parser("ingest-topics", help="crawl top GitHub repos per topic for SKILL.md")
+    pt.add_argument("--topic", action="append", help="repeatable; default: a curated set")
+    pt.add_argument("--max-repos", type=int, default=200, help="per topic (search caps at 1000)")
+    pt.add_argument("--max-skills", type=int, default=200, help="per repo")
+    pt.add_argument("--sort", choices=["stars", "updated"], default="stars")
+
+    prp = sub.add_parser("ingest-repos", help="crawl specific owner/repo for SKILL.md")
+    prp.add_argument("repos", nargs="+")
+    prp.add_argument("--max-skills", type=int, default=200)
+
     pr = sub.add_parser("run", help="score pending jobs")
-    pr.add_argument("--batch", type=int, default=8)
+    pr.add_argument("--batch", type=int, default=16)
+    pr.add_argument("--concurrency", type=int, default=8)
+    pr.add_argument("--max-usd-day", type=float, default=None,
+                    help="daily Jev spend cap (default $5 or WORKER_MAX_USD_PER_DAY; 0 = off)")
+    pr.add_argument("--quiet", action="store_true", help="progress summaries instead of per-skill lines")
     pr.add_argument("--forever", action="store_true")
     pr.add_argument("--fake", action="store_true", help="force the heuristic client")
 
     sub.add_parser("stats", help="queue + result counts")
+    sub.add_parser("rethreshold", help="re-decide stored results under the current thresholds (0 API calls)")
     sub.add_parser("backfill-meta", help="fill repo/path/name/description on old rows")
 
     pe = sub.add_parser("export-catalog", help="dump results to a hub catalog.json")
@@ -67,10 +87,24 @@ def main(argv=None) -> int:
         init_db(engine)
         n = ingest_github(engine, query=args.query, max_results=args.max)
         print(f"enqueued {n} new artifacts from GitHub")
+    elif args.cmd == "ingest-topics":
+        init_db(engine)
+        out = ingest_topics(engine, topics=tuple(args.topic or DEFAULT_TOPICS),
+                            max_repos=args.max_repos, max_skills=args.max_skills,
+                            sort=args.sort)
+        print(json.dumps(out))
+    elif args.cmd == "ingest-repos":
+        init_db(engine)
+        print(f"enqueued {ingest_repos(engine, args.repos, args.max_skills)} new artifacts")
     elif args.cmd == "run":
         out = run(engine, batch=args.batch, forever=args.forever,
-                  fake=True if args.fake else None)
-        print(f"done: scored={out['scored']} failed={out['failed']}")
+                  fake=True if args.fake else None, concurrency=args.concurrency,
+                  max_usd_day=args.max_usd_day, quiet=args.quiet)
+        print(f"done: scored={out['scored']} failed={out['failed']}"
+              + (" (daily cap reached)" if out["capped"] else ""))
+    elif args.cmd == "rethreshold":
+        init_db(engine)
+        print(json.dumps(rethreshold(engine)))
     elif args.cmd == "backfill-meta":
         init_db(engine)
         print(f"updated {backfill_meta(engine)} artifacts")

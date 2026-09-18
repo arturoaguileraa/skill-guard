@@ -36,19 +36,19 @@ const DECISION: Record<
 	{ label: string; tint: string; stroke: string; dot: string }
 > = {
 	allow: {
-		label: "Allow",
+		label: "Benign",
 		tint: "text-emerald-600 dark:text-emerald-400",
 		stroke: "stroke-emerald-500",
 		dot: "bg-emerald-500",
 	},
 	escalate: {
-		label: "Escalate",
+		label: "Suspicious",
 		tint: "text-amber-600 dark:text-amber-400",
 		stroke: "stroke-amber-500",
 		dot: "bg-amber-500",
 	},
 	block: {
-		label: "Block",
+		label: "Malicious",
 		tint: "text-red-600 dark:text-red-400",
 		stroke: "stroke-red-500",
 		dot: "bg-red-500",
@@ -56,7 +56,7 @@ const DECISION: Record<
 };
 
 const riskColor = (v: number) =>
-	v >= 0.8 ? "bg-red-500" : v >= 0.35 ? "bg-amber-500" : "bg-emerald-500";
+	v >= 0.8 ? "bg-red-500" : v >= 0.55 ? "bg-amber-500" : "bg-emerald-500";
 
 /* ── animated number ────────────────────────────────────────────────────── */
 function useCountUp(target: number, ms = 650) {

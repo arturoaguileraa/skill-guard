@@ -31,7 +31,13 @@ class Thresholds:
     # fixture while routing credential-adjacent-but-legitimate tools (e.g. a
     # migration skill that reads .env) to human review instead of a false block.
     block: float = 0.80
-    review: float = 0.35
+    # 0.35 was tuned on the 68 synthetic fixtures, but their benign median is
+    # already ~0.38, and so is that of 190 real public skills -- so 0.35 sent
+    # ~63% of clearly benign real skills to review. Every malicious fixture
+    # scores >= 0.95 (auto-block), so raising review to 0.55 costs them nothing
+    # and leaves ~12% of real skills in review. Caveat: the corpus has no subtle
+    # malicious example between 0.35 and 0.55, so recall there is unmeasured.
+    review: float = 0.55
     min_confidence: float = 0.45
 
 
@@ -56,6 +62,22 @@ def noisy_or(values: list[float]) -> float:
     monotone: no single question can lower a risk another one raised.
     """
     return 1.0 - prod(1.0 - min(max(v, 0.0), 1.0) for v in values) if values else 0.0
+
+
+def decide(risk: float, mean_conf: float, integrity: str | None,
+           th: Thresholds) -> tuple["Decision", str | None]:
+    """Risk -> decision. Pure, so stored results can be re-decided offline when
+    thresholds change (see `worker rethreshold`) without any Jev call."""
+    if integrity:
+        return Decision.ESCALATE, "escalated on integrity warning"
+    if risk >= th.block:
+        if mean_conf >= th.min_confidence:
+            return Decision.BLOCK, None
+        return Decision.ESCALATE, (
+            f"risk {risk:.2f} over block threshold but confidence {mean_conf:.2f} is low")
+    if risk >= th.review:
+        return Decision.ESCALATE, None
+    return Decision.ALLOW, None
 
 
 def score(reading: Reading, bank: Bank, thresholds: Thresholds | None = None) -> Verdict:
@@ -113,18 +135,9 @@ def score(reading: Reading, bank: Bank, thresholds: Thresholds | None = None) ->
                 f"treat this reading as possibly steered"
             )
 
-    if integrity:
-        decision = Decision.ESCALATE
-        notes.append("escalated on integrity warning")
-    elif risk >= th.block and mean_conf >= th.min_confidence:
-        decision = Decision.BLOCK
-    elif risk >= th.block:
-        decision = Decision.ESCALATE
-        notes.append(f"risk {risk:.2f} over block threshold but confidence {mean_conf:.2f} is low")
-    elif risk >= th.review:
-        decision = Decision.ESCALATE
-    else:
-        decision = Decision.ALLOW
+    decision, note = decide(risk, mean_conf, integrity, th)
+    if note:
+        notes.append(note)
 
     return Verdict(
         identity=reading.artifact.identity,

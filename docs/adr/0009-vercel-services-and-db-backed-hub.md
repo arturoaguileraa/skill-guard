@@ -29,6 +29,10 @@
 - **Real artifacts have no ground-truth label.** `label`/`correct` only fit the shared shape; the UI keys off `synthetic` and shows the verdict, not a "matches its label" claim.
 - **Negative / follow-up:** `/rpc/analyze` is public and unmetered (needs a rate limit); jev on serverless loses the warm-connection benefit of [ADR-0005](0005-instant-provisional-and-latency.md) between invocations; the worker daemon and a daily spend cap are still to do.
 
+## Verdict names
+
+The UI says **benign / suspicious / malicious**; the contract, the engine and the database keep `allow` / `escalate` / `block` (mapping in `VERDICT_LABEL`, `apps/web/src/lib/skillguard.ts`). Renaming only the presentation avoids a contract change and a data migration. Note "malicious" on a real third-party repo means the score crossed the block line, not that a person confirmed it — the hub says so.
+
 ## Gotchas learned
 
 - The `server` bundle must be **self-contained** (`tsdown` `alwaysBundle`) and must not use `varlock` at runtime — it shells out to its own CLI, which a function does not ship. `entry.mjs` (in git) re-exports the built `dist/index.mjs`; the service `entrypoint` is validated before the build, so it can't point at `dist/` directly.

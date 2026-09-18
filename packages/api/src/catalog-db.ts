@@ -21,7 +21,7 @@ function client(): Sql {
 	return cached.sql;
 }
 
-const THRESHOLDS = { block: 0.8, review: 0.35 } as const;
+const THRESHOLDS = { block: 0.8, review: 0.55 } as const;
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, "\\$&");
 

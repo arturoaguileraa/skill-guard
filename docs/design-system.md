@@ -14,7 +14,7 @@ Tokens are shadcn/oklch neutrals, tuned in `apps/web/src/index.css`:
 
 - Light: warm paper background, near-black ink, hairline borders.
 - Dark: deep near-black, off-white ink.
-- **Risk palette** (the only chromatic color): emerald = allow / low, amber = escalate / mid, red = block / high. Thresholds: red ≥ 0.8, amber ≥ 0.35, else emerald.
+- **Risk palette** (the only chromatic color): emerald = benign / low, amber = suspicious / mid, red = malicious / high. Thresholds: red ≥ 0.8, amber ≥ 0.55, else emerald. (The UI names are `benign` / `suspicious` / `malicious`; the oRPC contract and database keep `allow` / `escalate` / `block`.)
 
 Both themes are first-class; `next-themes` with a toggle. Never hardcode hex — use the semantic tokens (`bg-background`, `text-muted-foreground`, `border-border`, …).
 

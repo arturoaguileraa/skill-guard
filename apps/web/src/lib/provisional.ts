@@ -129,7 +129,7 @@ export function computeProvisional(text: string): Provisional {
 
 	const risk = 1 - families.reduce((p, f) => p * (1 - f.weight * f.risk), 1);
 
-	const decision = risk >= 0.7 ? "block" : risk >= 0.35 ? "escalate" : "allow";
+	const decision = risk >= 0.7 ? "block" : risk >= 0.55 ? "escalate" : "allow";
 
 	return {
 		provisional: true,
