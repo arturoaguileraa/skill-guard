@@ -1,9 +1,9 @@
-import type { AnalyzeResult } from "@jev-analysis/api/jev";
+import type { AnalyzeResult } from "@skill-guard/api/jev";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
-} from "@jev-analysis/ui/components/tooltip";
+} from "@skill-guard/ui/components/tooltip";
 import {
 	keepPreviousData,
 	useQuery,

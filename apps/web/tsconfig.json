@@ -12,7 +12,7 @@
     "rootDirs": ["."],
     "paths": {
       "@/*": ["./src/*"],
-      "@jev-analysis/ui/*": ["../../packages/ui/src/*"]
+      "@skill-guard/ui/*": ["../../packages/ui/src/*"]
     }
   }
 }

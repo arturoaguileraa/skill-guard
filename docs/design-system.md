@@ -34,7 +34,7 @@ Both themes are first-class; `next-themes` with a toggle. Never hardcode hex —
 
 ## Components
 
-- Built on `@jev-analysis/ui` (shadcn "base-lyra" over base-ui). Note: base-ui `TooltipTrigger` takes `render={<el/>}`, not `asChild`.
+- Built on `@skill-guard/ui` (shadcn "base-lyra" over base-ui). Note: base-ui `TooltipTrigger` takes `render={<el/>}`, not `asChild`.
 - Prefer existing components; the custom bits (dial, thin meters, preset chips, hub rows) are hand-styled for control.
 
 ## Principles

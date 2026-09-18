@@ -1,5 +1,5 @@
 {
-  "name": "jev-analysis",
+  "name": "skill-guard",
   "private": true,
   "workspaces": {
     "packages": [
@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
-    "@jev-analysis/config": "workspace:*",
+    "@skill-guard/config": "workspace:*",
     "@types/node": "catalog:",
     "turbo": "^2.10.12",
     "typescript": "catalog:",

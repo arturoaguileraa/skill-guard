@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@jev-analysis/ui/lib/utils";
+import { cn } from "@skill-guard/ui/lib/utils";
 import type * as React from "react";
 
 function Label({ className, ...props }: React.ComponentProps<"label">) {

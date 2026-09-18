@@ -12,8 +12,8 @@
     "env:generate": "varlock codegen"
   },
   "dependencies": {
-    "@jev-analysis/api": "workspace:*",
-    "@jev-analysis/ui": "workspace:*",
+    "@skill-guard/api": "workspace:*",
+    "@skill-guard/ui": "workspace:*",
     "@orpc/client": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/tanstack-query": "^1.15.0",
@@ -31,7 +31,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@jev-analysis/config": "workspace:*",
+    "@skill-guard/config": "workspace:*",
     "@tanstack/react-query-devtools": "^5.102.8",
     "@tanstack/react-router-devtools": "^1.167.1",
     "@tanstack/router-plugin": "^1.168.35",

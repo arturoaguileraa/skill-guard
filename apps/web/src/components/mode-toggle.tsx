@@ -1,10 +1,10 @@
-import { Button } from "@jev-analysis/ui/components/button";
+import { Button } from "@skill-guard/ui/components/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@jev-analysis/ui/components/dropdown-menu";
+} from "@skill-guard/ui/components/dropdown-menu";
 import { Moon, Sun } from "lucide-react";
 
 import { useTheme } from "@/components/theme-provider";

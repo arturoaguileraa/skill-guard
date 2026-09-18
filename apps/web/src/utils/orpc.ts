@@ -1,4 +1,4 @@
-import type { AppRouterClient } from "@jev-analysis/api/routers/index";
+import type { AppRouterClient } from "@skill-guard/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";

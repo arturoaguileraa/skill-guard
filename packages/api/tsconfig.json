@@ -1,5 +1,5 @@
 {
-  "extends": "@jev-analysis/config/tsconfig.base.json",
+  "extends": "@skill-guard/config/tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
     "declaration": true,

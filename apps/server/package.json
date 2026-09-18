@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
-    "@jev-analysis/api": "workspace:*",
+    "@skill-guard/api": "workspace:*",
     "@orpc/openapi": "^1.15.0",
     "@orpc/server": "^1.15.0",
     "@orpc/zod": "^1.15.0",
@@ -21,7 +21,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@jev-analysis/config": "workspace:*",
+    "@skill-guard/config": "workspace:*",
     "@types/node": "^26.4.1",
     "tsdown": "^0.23.0",
     "tsx": "^4.23.13",
