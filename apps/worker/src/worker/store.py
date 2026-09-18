@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -15,6 +15,10 @@ from sqlalchemy.engine import Engine
 
 from worker.db import artifacts, jobs, results
 from worker.meta import parse_frontmatter, parse_github_url
+
+
+# A job stuck in `running` longer than this belongs to a crashed worker: reclaim it.
+STALE_MINUTES = 10
 
 
 def content_hash(content: str) -> str:
@@ -99,6 +103,7 @@ def claim(engine: Engine, batch: int = 8) -> list[Claimed]:
                 for r in conn.execute(
                     text(
                         "SELECT id FROM jobs WHERE status='pending' "
+                        f"OR (status='running' AND locked_at < now() - interval '{STALE_MINUTES} minutes') "
                         "ORDER BY created_at LIMIT :n FOR UPDATE SKIP LOCKED"
                     ),
                     {"n": batch},
@@ -108,7 +113,11 @@ def claim(engine: Engine, batch: int = 8) -> list[Claimed]:
             ids = [
                 r[0]
                 for r in conn.execute(
-                    select(jobs.c.id).where(jobs.c.status == "pending")
+                    select(jobs.c.id).where(
+                        (jobs.c.status == "pending")
+                        | ((jobs.c.status == "running")
+                           & (jobs.c.locked_at < datetime.now(timezone.utc).replace(tzinfo=None)
+                              - timedelta(minutes=STALE_MINUTES))))
                     .order_by(jobs.c.created_at).limit(batch)
                 )
             ]
@@ -195,3 +204,37 @@ def backfill_meta(engine: Engine) -> int:
                 name=name, description=description, repo=repo, path=path))
             n += 1
     return n
+
+
+def spend_today(engine: Engine) -> float:
+    """Jev spend so far today (UTC), from the results table — shared by every
+    worker replica, so a daily cap holds globally."""
+    midnight = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+    with engine.begin() as conn:
+        return float(conn.execute(
+            select(func.coalesce(func.sum(results.c.cost_usd), 0.0))
+            .where(results.c.scored_at >= midnight)
+        ).scalar() or 0.0)
+
+
+def rethreshold(engine: Engine) -> dict:
+    """Re-decide every stored result from its stored risk under the engine's
+    current thresholds. Zero Jev calls: decisions are a pure function of the
+    risk, the mean confidence and the integrity warning we already saved."""
+    from skillguard.score import Thresholds, decide
+
+    th = Thresholds()
+    changed: dict[str, int] = {}
+    with engine.begin() as conn:
+        rows = conn.execute(select(
+            results.c.artifact_hash, results.c.risk, results.c.mean_confidence,
+            results.c.integrity_warning, results.c.decision)).all()
+        for r in rows:
+            new, _ = decide(r.risk, r.mean_confidence or 0.0, r.integrity_warning, th)
+            if new.value != r.decision:
+                key = f"{r.decision}->{new.value}"
+                changed[key] = changed.get(key, 0) + 1
+                conn.execute(update(results).where(
+                    results.c.artifact_hash == r.artifact_hash).values(decision=new.value))
+    return {"rows": len(rows), "review_threshold": th.review, "changed": changed}

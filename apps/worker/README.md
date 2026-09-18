@@ -33,7 +33,11 @@ cp .env.example .env            # optional: DATABASE_URL, TYPESAFE_API_KEY, GITH
 uv run worker init-db
 uv run worker ingest-local ~/.claude/skills ../jev/eval/fixtures   # backfill
 uv run worker ingest-github --query "filename:SKILL.md" --max 200  # scale (needs GITHUB_TOKEN)
-uv run worker run --batch 16          # drain the queue once
+uv run worker ingest-topics --max-repos 150   # crawl top repos per GitHub topic (SKILL.md)
+uv run worker ingest-repos anthropics/skills  # or specific repos
+uv run worker run --batch 48 --concurrency 16 --max-usd-day 5   # drain the queue once (capped)
+uv run worker rethreshold             # re-decide stored results under current thresholds (0 API calls)
+uv run worker backfill-meta           # fill repo/path/name/description on old rows
 uv run worker run --forever           # daemon: keep scoring as jobs arrive
 uv run worker stats
 uv run worker export-catalog ../jev/eval/catalog.json   # feed the web hub
@@ -48,6 +52,8 @@ uv run worker export-catalog ../jev/eval/catalog.json   # feed the web hub
 | `ingest.py` | sources: local paths and GitHub code search (rate-limited, paged) |
 | `scorer.py` | reuses the `skillguard` engine — same scoring as the live service |
 | `run.py` | the claim→score→save loop (one-shot or `--forever`) |
+| `sources.py` | bulk sources: GitHub repo-tree crawl per topic/repo (scales past code search's 1,000 cap) |
+| `meta.py` | deterministic frontmatter + GitHub-URL parsing (`name`, `description`, `repo`, `path`) |
 | `export_catalog.py` | dump results to the hub's `catalog.json` shape |
 
 ## Next steps

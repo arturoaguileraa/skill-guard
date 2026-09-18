@@ -47,7 +47,7 @@ def export_catalog(engine: Engine, out: Path, limit: int = 5000) -> int:
     catalog = {
         "generated_at": time.strftime("%Y-%m-%d"),
         "model": rows[0].model if rows else "jev-latest",
-        "thresholds": {"block": 0.8, "review": 0.35},
+        "thresholds": {"block": 0.8, "review": 0.55},
         "count": len(items),
         "malicious": sum(1 for i in items if i["label"] == "malicious"),
         "benign": sum(1 for i in items if i["label"] == "benign"),

@@ -199,4 +199,4 @@ def catalog() -> dict[str, object]:
         return json.loads(_CATALOG_PATH.read_text())
     except OSError:
         return {"count": 0, "items": [], "malicious": 0, "benign": 0,
-                "thresholds": {"block": 0.8, "review": 0.35}, "generated_at": "", "model": ""}
+                "thresholds": {"block": 0.8, "review": 0.55}, "generated_at": "", "model": ""}

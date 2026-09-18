@@ -26,6 +26,7 @@ class Scorer:
             )
         use_fake = fake if fake is not None else not has_key
         self.engine = Engine(bank, client=FakeClient()) if use_fake else Engine(bank)
+        self.is_fake = use_fake
         self.bank = bank
         self.th = Thresholds()
         self.weights_version = bank.version

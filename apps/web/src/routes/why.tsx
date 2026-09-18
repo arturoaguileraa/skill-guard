@@ -25,7 +25,7 @@ const STEPS: { k: string; h: string; b: string }[] = [
 	{
 		k: "04",
 		h: "Combine into a decision",
-		b: "A weighted noisy-OR over the families yields one risk, mapped to allow / escalate / block. Every verdict decomposes back into the questions that drove it.",
+		b: "A weighted noisy-OR over the families yields one risk, mapped to benign / suspicious / malicious. Every verdict decomposes back into the questions that drove it.",
 	},
 ];
 
@@ -241,9 +241,10 @@ function WhyRoute() {
 						Because the verdict is a transparent weighted sum of capability
 						families — not a mood — you can change how strict it is. Decide that
 						“capability beyond stated purpose” shouldn't count for much, or move
-						the line at which a risk becomes a block, and the decision updates
+						the line at which a risk becomes malicious, and the decision updates
 						by the same maths the server runs. In the tester you can drag those
-						weights live and watch a “block” relax to “escalate” or “allow”.
+						weights live and watch a “malicious” verdict relax to “suspicious”
+						or “benign”.
 					</p>
 					<Link
 						to="/"

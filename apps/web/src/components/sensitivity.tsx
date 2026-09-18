@@ -59,9 +59,9 @@ export function SensitivityPanel({
 					<span className="label-mono">adjust sensitivity</span>
 					<span className="mt-1 block max-w-2xl text-muted-foreground text-xs leading-relaxed">
 						Think it's over-cautious? The verdict is weighted capability
-						families, not a black box — dial a family down (or move the block
-						line) and the decision recomputes live, the same maths the server
-						runs. These map to weights in{" "}
+						families, not a black box — dial a family down (or move the
+						malicious line) and the decision recomputes live, the same maths the
+						server runs. These map to weights in{" "}
 						<span className="font-mono text-foreground/70">
 							skill_bank.yaml
 						</span>
@@ -123,7 +123,7 @@ export function SensitivityPanel({
 
 						<label className="flex flex-col gap-1 sm:col-span-2">
 							<span className="flex items-center justify-between font-mono text-[11px]">
-								<span className="text-foreground/80">block threshold</span>
+								<span className="text-foreground/80">malicious threshold</span>
 								<span className="text-muted-foreground tabular-nums">
 									{block.toFixed(2)}
 								</span>

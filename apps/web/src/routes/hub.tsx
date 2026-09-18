@@ -8,6 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { Reveal } from "@/components/motion";
+import { VERDICT_LABEL } from "@/lib/skillguard";
 import { orpc } from "@/utils/orpc";
 
 export const Route = createFileRoute("/hub")({
@@ -27,7 +28,7 @@ const DECISION_TINT: Record<string, string> = {
 };
 
 const riskColor = (v: number) =>
-	v >= 0.8 ? "bg-red-500" : v >= 0.35 ? "bg-amber-500" : "bg-emerald-500";
+	v >= 0.8 ? "bg-red-500" : v >= 0.55 ? "bg-amber-500" : "bg-emerald-500";
 
 function Stat({ n, label }: { n: string | number; label: string }) {
 	return (
@@ -90,7 +91,7 @@ function Row({ item }: { item: CatalogItem }) {
 				<span
 					className={`hidden justify-self-start rounded-[--radius] border px-2 py-0.5 font-mono text-[11px] sm:inline-block ${DECISION_TINT[item.decision]}`}
 				>
-					{item.decision}
+					{VERDICT_LABEL[item.decision]}
 				</span>
 
 				<div className="hidden items-center gap-2 sm:flex">
@@ -109,13 +110,13 @@ function Row({ item }: { item: CatalogItem }) {
 					<span
 						className={`justify-self-end font-mono text-[11px] ${item.label === "malicious" ? "text-red-500" : "text-emerald-500"}`}
 					>
-						{item.label === "malicious" ? "malware" : "clean"}
+						{item.label === "malicious" ? "malicious" : "benign"}
 					</span>
 				) : (
 					<span
 						className={`justify-self-end font-mono text-[11px] sm:hidden ${DECISION_TINT[item.decision]?.split(" ")[0]}`}
 					>
-						{item.decision}
+						{VERDICT_LABEL[item.decision]}
 					</span>
 				)}
 			</button>
@@ -141,7 +142,8 @@ function Row({ item }: { item: CatalogItem }) {
 						)}
 					</div>
 					<div className="self-start text-muted-foreground text-xs leading-relaxed">
-						Verdict <span className="font-mono">{item.decision}</span> at{" "}
+						Verdict{" "}
+						<span className="font-mono">{VERDICT_LABEL[item.decision]}</span> at{" "}
 						{(item.risk * 100).toFixed(1)}% risk
 						{item.synthetic ? (
 							<>
@@ -273,8 +275,9 @@ function HubRoute() {
 					) : (
 						<p className="mt-4 max-w-xl rounded-[--radius] border border-border px-3 py-2 text-muted-foreground text-xs leading-relaxed">
 							Public skills scored automatically as they are discovered. A score
-							is triage, not proof of malice: “escalate” means worth a human
-							look.
+							is triage, not proof of malice: “suspicious” means worth a human
+							look, and “malicious” means the score crossed the block line — not
+							that a person confirmed it.
 						</p>
 					)}
 				</Reveal>
@@ -288,14 +291,14 @@ function HubRoute() {
 				<>
 					<div className="grid grid-cols-2 gap-px overflow-hidden border-border border-x border-b bg-border sm:grid-cols-4">
 						<Stat n={first?.count ?? "—"} label="artifacts" />
-						<Stat n={first?.malicious ?? "—"} label="block" />
+						<Stat n={first?.malicious ?? "—"} label="malicious" />
 						<Stat
 							n={isDb ? (first?.escalate ?? "—") : (first?.benign ?? "—")}
-							label={isDb ? "escalate" : "benign"}
+							label={isDb ? "suspicious" : "benign"}
 						/>
 						<Stat
 							n={first ? `${(first.thresholds.block * 100).toFixed(0)}%` : "—"}
-							label="block threshold"
+							label="malicious threshold"
 						/>
 					</div>
 
@@ -318,7 +321,7 @@ function HubRoute() {
 											: "border-border text-muted-foreground hover:text-foreground"
 									}`}
 								>
-									{f}
+									{f === "all" ? "all" : VERDICT_LABEL[f]}
 								</button>
 							))}
 						</div>
