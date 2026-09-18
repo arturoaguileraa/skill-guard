@@ -10,7 +10,6 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Reveal } from "@/components/motion";
@@ -200,47 +199,6 @@ function Verdict({ d, risk }: { d: Decision; risk: number }) {
 	);
 }
 
-/** Shown while the attack paragraph is still in the text: invites the visitor to delete it. */
-function TryDeleteNudge({
-	snippet,
-	onSelect,
-	onDelete,
-}: {
-	snippet: string;
-	onSelect: () => void;
-	onDelete: () => void;
-}) {
-	return (
-		<div className="flex flex-col gap-2 border-border border-b px-4 py-3">
-			<span className="label-mono flex items-center gap-2">
-				<span className="size-1.5 animate-pulse rounded-full bg-foreground" />
-				Try it
-			</span>
-			<p className="text-sm leading-relaxed">
-				Delete the paragraph that starts{" "}
-				<span className="font-mono text-xs">“{snippet}”</span> and watch the
-				verdict.
-			</p>
-			<div className="flex flex-wrap gap-2">
-				<button
-					type="button"
-					onClick={onSelect}
-					className="rounded-[--radius] border border-foreground bg-foreground px-3 py-1.5 font-mono text-background text-xs transition-opacity hover:opacity-85"
-				>
-					Select it
-				</button>
-				<button
-					type="button"
-					onClick={onDelete}
-					className="rounded-[--radius] border border-border px-3 py-1.5 font-mono text-muted-foreground text-xs transition-colors hover:border-foreground/40 hover:text-foreground"
-				>
-					or delete it for me
-				</button>
-			</div>
-		</div>
-	);
-}
-
 /**
  * Shown after the paragraph is gone. The numbers come only from real Jev
  * readings (the cached one for the original text, and the current one), so it
@@ -250,20 +208,18 @@ function DeltaResult({
 	before,
 	after,
 	pending,
-	onRestore,
 }: {
 	before?: AnalyzeResult;
 	after?: AnalyzeResult;
 	pending: boolean;
-	onRestore: () => void;
 }) {
 	const changed = before && after && before.decision !== after.decision;
 	return (
 		<div
-			className="flex flex-col gap-2 border-border border-b px-4 py-3"
+			className="flex flex-col gap-1.5 border-border border-b px-4 py-3"
 			aria-live="polite"
 		>
-			<span className="label-mono">You removed the exfiltration step</span>
+			<span className="label-mono">Malware part removed</span>
 			{pending || !after ? (
 				<p className="flex items-center gap-2 text-muted-foreground text-sm">
 					<span className="size-1.5 animate-pulse rounded-full bg-muted-foreground" />
@@ -287,15 +243,6 @@ function DeltaResult({
 					</span>
 				</p>
 			)}
-			<div>
-				<button
-					type="button"
-					onClick={onRestore}
-					className="rounded-[--radius] border border-border px-3 py-1.5 font-mono text-muted-foreground text-xs transition-colors hover:border-foreground/40 hover:text-foreground"
-				>
-					Put it back
-				</button>
-			</div>
 		</div>
 	);
 }
@@ -304,8 +251,6 @@ function TesterRoute() {
 	const [text, setText] = useState(PRESETS[0].text);
 	// The pristine exfil text, kept once the visitor deletes its attack paragraph.
 	const [original, setOriginal] = useState<string | null>(null);
-	const taRef = useRef<HTMLTextAreaElement>(null);
-	const reduceMotion = useReducedMotion();
 	const queryClient = useQueryClient();
 	const debounced = useDebounced(text, 180);
 
@@ -340,7 +285,6 @@ function TesterRoute() {
 
 	const activePreset = matchPreset(text);
 	const lure = useMemo(() => findLure(text), [text]);
-	const showNudge = Boolean(lure);
 	const showDelta = Boolean(original) && !lure;
 	// The reading we already have for the untouched text (real, from the cache).
 	const before = original
@@ -348,15 +292,6 @@ function TesterRoute() {
 				orpc.analyze.queryKey({ input: { text: original } }),
 			)
 		: undefined;
-
-	function selectLure() {
-		const ta = taRef.current;
-		if (!lure || !ta) return;
-		ta.focus();
-		ta.setSelectionRange(lure.start, lure.end);
-		const line = text.slice(0, lure.start).split("\n").length - 1;
-		ta.scrollTop = Math.max(0, line * 21 - 40);
-	}
 
 	const lines = text.split("\n").length;
 
@@ -410,6 +345,27 @@ function TesterRoute() {
 						</button>
 					);
 				})}
+				{lure ? (
+					<button
+						type="button"
+						onClick={() => edit(removeLure(text))}
+						className="ml-auto flex items-center gap-2 rounded-[--radius] border border-red-500/40 bg-red-500/10 px-3 py-1.5 font-mono text-red-600 text-xs transition-colors hover:bg-red-500/20 dark:text-red-400"
+					>
+						<span className="size-1.5 animate-pulse rounded-full bg-red-500" />
+						Delete malware part
+					</button>
+				) : showDelta ? (
+					<button
+						type="button"
+						onClick={() => {
+							if (original) setText(original);
+							setOriginal(null);
+						}}
+						className="ml-auto rounded-[--radius] border border-border px-3 py-1.5 font-mono text-muted-foreground text-xs transition-colors hover:border-foreground/40 hover:text-foreground"
+					>
+						Put it back
+					</button>
+				) : null}
 			</Reveal>
 
 			{/* workbench */}
@@ -424,37 +380,7 @@ function TesterRoute() {
 							{lines} ln · {text.length} ch
 						</span>
 					</div>
-					<AnimatePresence initial={false} mode="wait">
-						{(showNudge || showDelta) && (
-							<motion.div
-								key={showNudge ? "nudge" : "delta"}
-								initial={reduceMotion ? false : { opacity: 0, y: -6 }}
-								animate={{ opacity: 1, y: 0 }}
-								exit={reduceMotion ? undefined : { opacity: 0 }}
-								transition={{ duration: 0.25 }}
-							>
-								{showNudge && lure ? (
-									<TryDeleteNudge
-										snippet={lure.snippet}
-										onSelect={selectLure}
-										onDelete={() => edit(removeLure(text))}
-									/>
-								) : (
-									<DeltaResult
-										before={before}
-										after={fresh ? calibrated : undefined}
-										pending={!fresh}
-										onRestore={() => {
-											if (original) setText(original);
-											setOriginal(null);
-										}}
-									/>
-								)}
-							</motion.div>
-						)}
-					</AnimatePresence>
 					<textarea
-						ref={taRef}
 						value={text}
 						onChange={(e) => edit(e.target.value)}
 						spellCheck={false}
@@ -519,6 +445,14 @@ function TesterRoute() {
 									)}
 								</span>
 							</div>
+
+							{showDelta && (
+								<DeltaResult
+									before={before}
+									after={fresh ? calibrated : undefined}
+									pending={!fresh}
+								/>
+							)}
 
 							<div className="flex flex-col items-center gap-3 px-4 pt-6 pb-5">
 								<RiskDial risk={view.risk} decision={decision} />
