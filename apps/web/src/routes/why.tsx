@@ -242,7 +242,7 @@ function WhyRoute() {
 						families — not a mood — you can change how strict it is. Decide that
 						“capability beyond stated purpose” shouldn't count for much, or move
 						the line at which a risk becomes malicious, and the decision updates
-						by the same maths the server runs. In the tester you can drag those
+						by the same maths the server runs. In the playground you can drag those
 						weights live and watch a “malicious” verdict relax to “suspicious”
 						or “benign”.
 					</p>

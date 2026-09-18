@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ModeToggle } from "./mode-toggle";
 
 const NAV = [
-	{ to: "/", label: "Tester" },
+	{ to: "/", label: "Playground" },
 	{ to: "/why", label: "Why" },
 	{ to: "/hub", label: "Hub" },
 ] as const;
