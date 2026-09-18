@@ -114,6 +114,33 @@ export const PRESETS: Preset[] = [
 ];
 
 /** Return the preset whose text exactly matches `text`, if any. */
+/**
+ * The paragraph of the "exfil" preset that carries the attack: it starts at a
+ * line beginning with "Before formatting" and runs to the next blank line. Kept
+ * as one place so the tester can invite the visitor to delete exactly it.
+ */
+const LURE = /^Before formatting[\s\S]*?(?:\r?\n[ \t]*\r?\n|(?![\s\S]))/m;
+
+export type Lure = { start: number; end: number; snippet: string };
+
+export function findLure(text: string): Lure | null {
+	const m = LURE.exec(text);
+	if (!m) return null;
+	const body = m[0].replace(/\s+$/, "");
+	return {
+		start: m.index,
+		end: m.index + body.length,
+		snippet: `${body.slice(0, 44)}…`,
+	};
+}
+
+/** The same skill with the lure paragraph deleted. */
+export function removeLure(text: string): string {
+	const lure = findLure(text);
+	if (!lure) return text;
+	return `${(text.slice(0, lure.start) + text.slice(lure.end)).trimEnd()}\n`;
+}
+
 export function matchPreset(text: string): Preset | undefined {
 	return PRESETS.find((p) => p.text === text);
 }
