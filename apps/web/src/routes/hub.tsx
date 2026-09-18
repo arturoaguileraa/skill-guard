@@ -36,10 +36,12 @@ function Stat({
 	n,
 	label,
 	exact,
+	chevron,
 }: {
 	n: string | number;
 	label: string;
 	exact?: number;
+	chevron?: boolean;
 }) {
 	return (
 		<div
@@ -47,7 +49,10 @@ function Stat({
 			className="flex flex-col gap-1 bg-background p-4"
 		>
 			<span className="font-display text-3xl tabular-nums">{n}</span>
-			<span className="label-mono">{label}</span>
+			<span className="label-mono">
+				{label}
+				{chevron ? " >" : ""}
+			</span>
 		</div>
 	);
 }
@@ -307,6 +312,7 @@ function HubRoute() {
 							n={first ? formatCount(first.count) : "—"}
 							exact={first?.count}
 							label="skills analyzed"
+							chevron
 						/>
 						<Stat
 							n={first ? formatCount(first.malicious) : "—"}
