@@ -101,6 +101,7 @@ class AnalyzeResponse(BaseModel):
     model: str
     request_id: str | None
     thresholds: dict[str, float]
+    deception: float = 0.0
     error: str | None = None
 
 
@@ -164,7 +165,9 @@ def _compute(req: AnalyzeRequest) -> AnalyzeResponse:
         latency_ms=reading.latency_ms,
         model=eng.model,
         request_id=reading.request_id,
-        thresholds={"block": th.block, "review": th.review},
+        thresholds={"block": th.block, "review": th.review,
+                    "min_deception": th.min_deception},
+        deception=verdict.deception,
         error=reading.error,
     )
 

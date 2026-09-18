@@ -20,6 +20,9 @@ export function recompute(
 	weights: Record<string, number>,
 	block: number,
 	review: number,
+	// Same gate as score.py: "malicious" needs evidence of deception; a high
+	// risk from capability alone stays "suspicious". Weights do not change it.
+	deception?: { value: number; min: number },
 ): { risk: number; decision: Decision } {
 	// risk = 1 - Π(1 - weight_f · familyRisk_f)   (weighted noisy-OR)
 	const risk =
@@ -28,7 +31,14 @@ export function recompute(
 			(p, f) => p * (1 - (weights[f.family] ?? f.weight) * f.risk),
 			1,
 		);
+	const capabilityOnly = deception ? deception.value < deception.min : false;
 	const decision: Decision =
-		risk >= block ? "block" : risk >= review ? "escalate" : "allow";
+		risk >= block
+			? capabilityOnly
+				? "escalate"
+				: "block"
+			: risk >= review
+				? "escalate"
+				: "allow";
 	return { risk, decision };
 }

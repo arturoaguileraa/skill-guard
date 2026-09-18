@@ -22,10 +22,12 @@ export function SensitivityPanel({
 	families,
 	defaultBlock,
 	defaultReview,
+	deception,
 }: {
 	families: FamilyRisk[];
 	defaultBlock: number;
 	defaultReview: number;
+	deception?: { value: number; min: number };
 }) {
 	const [open, setOpen] = useState(false);
 	const [weights, setWeights] = useState<Record<string, number>>({});
@@ -33,12 +35,12 @@ export function SensitivityPanel({
 	const dirty = block !== defaultBlock || Object.keys(weights).length > 0;
 
 	const tuned = useMemo(
-		() => recompute(families, weights, block, defaultReview),
-		[families, weights, block, defaultReview],
+		() => recompute(families, weights, block, defaultReview, deception),
+		[families, weights, block, defaultReview, deception],
 	);
 	const base = useMemo(
-		() => recompute(families, {}, defaultBlock, defaultReview),
-		[families, defaultBlock, defaultReview],
+		() => recompute(families, {}, defaultBlock, defaultReview, deception),
+		[families, defaultBlock, defaultReview, deception],
 	);
 
 	const reset = () => {

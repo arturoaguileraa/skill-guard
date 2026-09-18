@@ -68,23 +68,39 @@ def test_engine_reports_cost_and_tokens(engine, bank):
     assert r.cost_usd >= 0.0
 
 
-def test_question_strength_damps_a_noisy_signal(bank):
-    # unpinned_remote_source is damped (v2): alone, it must not reach a block,
-    # while its sibling fetch_and_execute keeps full strength.
-    assert bank.specs["unpinned_remote_source"].strength < 1.0
-    assert bank.specs["fetch_and_execute"].strength == 1.0
-
+def _verdict(bank, values):
     from skillguard.engine import Reading
     from skillguard.extract import artifact_from_text
 
     art = artifact_from_text("---\nname: x\ndescription: y\n---\nbody")
+    return score(Reading(art, values, {q: 1.0 for q in values}, {}, 0, 0.0), bank)
 
-    def risk_of(values):
-        r = Reading(art, values, {q: 1.0 for q in values}, {}, 0, 0.0)
-        return score(r, bank)
 
-    only_unpinned = risk_of({"unpinned_remote_source": 1.0})
-    only_fetch = risk_of({"fetch_and_execute": 1.0})
-    assert only_unpinned.risk < only_fetch.risk
-    assert only_unpinned.decision is not Decision.BLOCK
-    assert only_fetch.decision is Decision.BLOCK
+def test_question_strength_damps_a_noisy_signal(bank):
+    # unpinned_remote_source is damped (v2+): alone it scores well below its
+    # sibling fetch_and_execute, which keeps full strength.
+    assert bank.specs["unpinned_remote_source"].strength < 1.0
+    assert bank.specs["fetch_and_execute"].strength == 1.0
+    assert _verdict(bank, {"unpinned_remote_source": 1.0}).risk < _verdict(
+        bank, {"fetch_and_execute": 1.0}).risk
+
+
+def test_block_requires_evidence_of_deception(bank):
+    # A high-risk capability with no concealment / mismatch / off-host send is
+    # "suspicious", however high the risk (e.g. reading its own API key, curl|sh).
+    capability_only = _verdict(bank, {"reads_credentials": 1.0, "fetch_and_execute": 1.0})
+    assert capability_only.risk >= 0.8
+    assert capability_only.deception == 0.0
+    assert capability_only.decision is Decision.ESCALATE
+
+    # The same capability plus concealment / exfiltration is malicious.
+    deceptive = _verdict(bank, {"reads_credentials": 1.0, "sends_data_offhost": 1.0,
+                                "hides_from_user": 1.0})
+    assert deceptive.deception >= 0.9
+    assert deceptive.decision is Decision.BLOCK
+
+
+def test_deception_flag_is_declared_in_the_bank(bank):
+    flagged = {q for q, s in bank.specs.items() if s.deception}
+    assert {"hides_from_user", "sends_data_offhost", "capability_beyond_purpose"} <= flagged
+    assert not flagged & {"reads_credentials", "fetch_and_execute", "persistence"}
