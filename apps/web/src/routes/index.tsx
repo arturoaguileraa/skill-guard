@@ -375,6 +375,40 @@ function VerdictBar({
 	);
 }
 
+/** Y (px, from the textarea's top) of the caret line, measured on an invisible
+ * copy of the text with the same box, font and wrapping. The textarea itself
+ * never scrolls (it grows), so nothing else tells us where the caret is. */
+function caretTop(el: HTMLTextAreaElement): number {
+	const cs = getComputedStyle(el);
+	const ghost = document.createElement("div");
+	ghost.style.cssText = [
+		"box-sizing",
+		"width",
+		"padding",
+		"font-family",
+		"font-size",
+		"font-weight",
+		"line-height",
+		"letter-spacing",
+		"tab-size",
+		"white-space",
+		"overflow-wrap",
+		"word-break",
+	]
+		.map((k) => `${k}:${cs.getPropertyValue(k)}`)
+		.join(";");
+	ghost.style.position = "absolute";
+	ghost.style.visibility = "hidden";
+	ghost.textContent = el.value.slice(0, el.selectionEnd);
+	const marker = document.createElement("span");
+	marker.textContent = "\u200b";
+	ghost.appendChild(marker);
+	document.body.appendChild(ghost);
+	const top = marker.offsetTop;
+	ghost.remove();
+	return top;
+}
+
 /**
  * The textarea with the attack paragraph marked in place. A textarea can't style
  * a range, so a transparent-text mirror sits behind it (same font, wrap and
@@ -401,6 +435,7 @@ function LureEditor({
 }) {
 	const area = useRef<HTMLTextAreaElement>(null);
 	const wrap = useRef<HTMLDivElement>(null);
+	const scroller = useRef<HTMLDivElement>(null);
 	const mark = useRef<HTMLElement>(null);
 	const [tagTop, setTagTop] = useState<number | null>(null);
 
@@ -411,7 +446,23 @@ function LureEditor({
 		if (!el) return;
 		el.style.height = "auto";
 		el.style.height = `${Math.max(el.scrollHeight, 384)}px`;
+		followCaret();
 	}, [value]);
+
+	// Keep the caret on screen inside the scrolling box (typing at the end of a
+	// long skill, arrow keys). The browser won't: the textarea has no scroll of its own.
+	function followCaret() {
+		const el = area.current;
+		const box = scroller.current;
+		if (!el || !box || document.activeElement !== el) return;
+		const line = Number.parseFloat(getComputedStyle(el).lineHeight) || 20;
+		const top = caretTop(el);
+		if (top < box.scrollTop + line) {
+			box.scrollTop = Math.max(0, top - line);
+		} else if (top + 2 * line > box.scrollTop + box.clientHeight) {
+			box.scrollTop = top + 2 * line - box.clientHeight;
+		}
+	}
 
 	// Anchor the tag to the first line of the marked paragraph.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: re-measure on edits
@@ -468,45 +519,57 @@ function LureEditor({
 					</span>
 				</button>
 			)}
-			<div ref={wrap} className="relative flex-1">
+			{/* The editor scrolls inside a box sized to the verdict panel, so a long
+			    skill no longer stretches the page. Mirror, textarea and tag share one
+			    scroll content, so they stay aligned. */}
+			<div className="relative h-96 lg:h-auto lg:min-h-96 lg:flex-1">
 				<div
-					aria-hidden
-					className={`pointer-events-none absolute inset-0 text-transparent ${type}`}
+					ref={scroller}
+					className="absolute inset-0 overflow-y-auto overscroll-contain"
 				>
-					{lure ? (
-						<>
-							{value.slice(0, lure.start)}
-							<mark
-								ref={mark}
-								className="animate-pulse rounded-sm bg-red-500/15 box-decoration-clone text-transparent underline decoration-red-500 decoration-wavy underline-offset-4"
+					<div ref={wrap} className="relative flex min-h-full flex-col">
+						<div
+							aria-hidden
+							className={`pointer-events-none absolute inset-0 text-transparent ${type}`}
+						>
+							{lure ? (
+								<>
+									{value.slice(0, lure.start)}
+									<mark
+										ref={mark}
+										className="animate-pulse rounded-sm bg-red-500/15 box-decoration-clone text-transparent underline decoration-red-500 decoration-wavy underline-offset-4"
+									>
+										{value.slice(lure.start, lure.end)}
+									</mark>
+									{value.slice(lure.end)}
+								</>
+							) : (
+								value
+							)}
+						</div>
+						<textarea
+							ref={area}
+							value={value}
+							onChange={(e) => onChange(e.target.value)}
+							onSelect={followCaret}
+							spellCheck={false}
+							placeholder="Paste a Claude Code skill or MCP server definition…"
+							className={`relative block w-full flex-1 resize-none overflow-hidden bg-transparent outline-none placeholder:text-muted-foreground/60 ${type}`}
+						/>
+						{!compact && lure && tagTop !== null && (
+							<button
+								type="button"
+								onClick={selectLure}
+								style={{ top: Math.max(tagTop - 24, 2) }}
+								className="absolute left-4 flex items-center gap-1.5 rounded-[--radius] border border-red-500/40 bg-background px-2 py-0.5 font-mono text-[11px] text-red-600 shadow-sm transition-colors hover:bg-red-500/10 dark:text-red-400"
 							>
-								{value.slice(lure.start, lure.end)}
-							</mark>
-							{value.slice(lure.end)}
-						</>
-					) : (
-						value
-					)}
+								<span className="size-1.5 rounded-full bg-red-500" />
+								This paragraph is the attack — select it, hit ⌫, watch the
+								verdict
+							</button>
+						)}
+					</div>
 				</div>
-				<textarea
-					ref={area}
-					value={value}
-					onChange={(e) => onChange(e.target.value)}
-					spellCheck={false}
-					placeholder="Paste a Claude Code skill or MCP server definition…"
-					className={`relative block w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-muted-foreground/60 ${type}`}
-				/>
-				{!compact && lure && tagTop !== null && (
-					<button
-						type="button"
-						onClick={selectLure}
-						style={{ top: Math.max(tagTop - 24, 2) }}
-						className="absolute left-4 flex items-center gap-1.5 rounded-[--radius] border border-red-500/40 bg-background px-2 py-0.5 font-mono text-[11px] text-red-600 shadow-sm transition-colors hover:bg-red-500/10 dark:text-red-400"
-					>
-						<span className="size-1.5 rounded-full bg-red-500" />
-						This paragraph is the attack — select it, hit ⌫, watch the verdict
-					</button>
-				)}
 			</div>
 		</>
 	);
