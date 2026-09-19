@@ -30,10 +30,18 @@ from skillguard.testing import FakeClient
 
 load_dotenv()
 
-# The connection to the Jev API is cold on first use (~890ms) and warm on reuse
-# (~455ms) -- a 2x cliff. This loop keeps the pooled HTTPS connection hot so the
-# live editor pays the warm price, not the cold one.
-KEEPALIVE_SECONDS = 30
+# A connection to the Jev API costs ~430ms to open (TCP + TLS, ~190ms RTT each)
+# and the server drops it after ~4s idle, so a cold read is ~900ms vs ~470ms warm.
+# We hold the pooled HTTPS connection open with a cheap GET /v1/models (~200ms, no
+# inference) every 2s -- measured: 2s and 4s pings keep reads warm, 8s idle does not.
+KEEPALIVE_SECONDS = 2
+
+
+def _ping() -> None:
+    client = _engine().client
+    if isinstance(client, FakeClient):
+        return
+    client.models.list()
 
 
 @contextlib.asynccontextmanager
@@ -47,7 +55,8 @@ async def _lifespan(app: FastAPI):
     async def keepalive() -> None:
         while True:
             await asyncio.sleep(KEEPALIVE_SECONDS)
-            await warm()
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(_ping)
 
     task = asyncio.create_task(keepalive())
     try:
