@@ -104,28 +104,38 @@ export const PRESETS: Preset[] = [
 /** Return the preset whose text exactly matches `text`, if any. */
 /**
  * The paragraph of the "exfil" preset that carries the attack: it starts at a
- * line beginning with "Before formatting" and runs to the next blank line. Kept
- * as one place so the playground can invite the visitor to delete exactly it.
+ * line beginning with "Before formatting" and runs to the next blank line.
+ * Extracted once from the preset so the playground can invite the visitor to
+ * delete exactly it.
  */
 const LURE = /^Before formatting[\s\S]*?(?:\r?\n[ \t]*\r?\n|(?![\s\S]))/m;
 
+export const EXFIL_LURE = (() => {
+	const m = LURE.exec(EXFIL_SKILL);
+	return m ? m[0].replace(/\s+$/, "") : "";
+})();
+
 export type Lure = { start: number; end: number; snippet: string };
 
-export function findLure(text: string): Lure | null {
-	const m = LURE.exec(text);
-	if (!m) return null;
-	const body = m[0].replace(/\s+$/, "");
+/**
+ * Where the preset's exact attack paragraph sits in `text`, if it is still
+ * there. It is an exact match on purpose: a regex over arbitrary text also
+ * flagged pasted skills that merely had a line starting "Before formatting",
+ * and kept flagging a paragraph the visitor had already reworded.
+ */
+export function locateLure(text: string): Lure | null {
+	if (!EXFIL_LURE) return null;
+	const start = text.indexOf(EXFIL_LURE);
+	if (start < 0) return null;
 	return {
-		start: m.index,
-		end: m.index + body.length,
-		snippet: `${body.slice(0, 44)}…`,
+		start,
+		end: start + EXFIL_LURE.length,
+		snippet: `${EXFIL_LURE.slice(0, 44)}…`,
 	};
 }
 
 /** The same skill with the lure paragraph deleted. */
-export function removeLure(text: string): string {
-	const lure = findLure(text);
-	if (!lure) return text;
+export function removeLure(text: string, lure: Lure): string {
 	return `${(text.slice(0, lure.start) + text.slice(lure.end)).trimEnd()}\n`;
 }
 

@@ -16,8 +16,8 @@ import { Reveal } from "@/components/motion";
 import { SensitivityPanel } from "@/components/sensitivity";
 import { computeProvisional, findFlaggedPhrases } from "@/lib/provisional";
 import {
-	findLure,
 	type Lure,
+	locateLure,
 	matchPreset,
 	PRESETS,
 	removeLure,
@@ -577,8 +577,17 @@ function LureEditor({
 
 function TesterRoute() {
 	const [text, setText] = useState(PRESETS[0].text);
-	// The pristine exfil text, kept once the visitor deletes its attack paragraph.
-	const [original, setOriginal] = useState<string | null>(null);
+	// The attack paragraph is only highlighted while "armed": from loading the
+	// malicious preset until the visitor first removes or changes that paragraph.
+	// After that it never comes back on its own (typing the same words, pasting
+	// another skill), only via the preset chip, "Put it back", or an exact undo.
+	const [lureArmed, setLureArmed] = useState(true);
+	// The text as it was before the paragraph went away, plus what preceded it, so
+	// the before → after only shows while this is still recognizably the same skill.
+	const [original, setOriginal] = useState<{
+		text: string;
+		keep: string;
+	} | null>(null);
 	const queryClient = useQueryClient();
 	const debounced = useDebounced(text, 180);
 	// Touch or narrow: taps replace the select-then-⌫ gesture, and the verdict bar shows.
@@ -588,9 +597,23 @@ function TesterRoute() {
 
 	// Any edit funnels through here so we notice the paragraph being removed.
 	function edit(next: string) {
-		if (matchPreset(text)?.id === "exfil" && next !== text && !findLure(next))
-			setOriginal(text);
-		else if (findLure(next)) setOriginal(null);
+		if (lureArmed) {
+			const was = locateLure(text);
+			if (was && !locateLure(next)) {
+				setLureArmed(false);
+				const keep = text.slice(0, was.start).trimEnd();
+				// Only a deletion or rewording of the paragraph counts as "removed the
+				// malware part"; replacing everything with something else does not.
+				setOriginal(next.startsWith(keep) ? { text, keep } : null);
+			}
+		} else if (original) {
+			if (next === original.text) {
+				setLureArmed(true); // undone back to exactly the original
+				setOriginal(null);
+			} else if (!next.startsWith(original.keep)) {
+				setOriginal(null); // no longer the same skill
+			}
+		}
 		setText(next);
 	}
 
@@ -616,20 +639,24 @@ function TesterRoute() {
 	const meta = DECISION[decision];
 
 	const activePreset = matchPreset(text);
-	const lure = useMemo(() => findLure(text), [text]);
+	const lure = useMemo(
+		() => (lureArmed ? locateLure(text) : null),
+		[text, lureArmed],
+	);
 	const showDelta = Boolean(original) && !lure;
 	// The reading we already have for the untouched text (real, from the cache).
 	const before = original
 		? queryClient.getQueryData<AnalyzeResult>(
-				orpc.analyze.queryKey({ input: { text: original } }),
+				orpc.analyze.queryKey({ input: { text: original.text } }),
 			)
 		: undefined;
 
 	const lines = text.split("\n").length;
 
 	function restore() {
-		if (original) setText(original);
+		if (original) setText(original.text);
 		setOriginal(null);
+		setLureArmed(true);
 	}
 	function openVerdict() {
 		verdictRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -673,6 +700,7 @@ function TesterRoute() {
 							type="button"
 							onClick={() => {
 								setOriginal(null);
+								setLureArmed(p.id === "exfil");
 								setText(p.text);
 							}}
 							className={`flex min-h-11 items-center rounded-[--radius] border px-3 py-2 font-mono text-xs transition-colors sm:min-h-0 sm:py-1.5 ${
@@ -713,7 +741,7 @@ function TesterRoute() {
 						onChange={edit}
 						lure={lure}
 						compact={compact}
-						onDelete={() => edit(removeLure(text))}
+						onDelete={() => lure && edit(removeLure(text, lure))}
 						restorable={showDelta}
 						onRestore={restore}
 					/>
